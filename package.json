@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "deasync": "0.1.7"
+  },
+  "name": "js-base",
+  "version": "1.0.0",
+  "description": "A transparent interface to Redis.",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/CapacitorSet/js-base"
+  },
+  "keywords": [
+    "redis",
+    "database"
+  ],
+  "author": "Capacitor Set",
+  "license": "MIT"
+}
