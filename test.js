@@ -1,9 +1,7 @@
 var BaseJS = require("./index.js"),
-	redis = require("redis"),
-	client = redis.createClient(),
 	util = require("util");
 
-var db = BaseJS(client);
+var db = BaseJS();
 
 util.log("Setting hello");
 db.hello = {};

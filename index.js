@@ -1,6 +1,14 @@
 var deasync = require("deasync");
 
-module.exports = function BaseJS(client, base = {}, inTree = []) {
+module.exports = function BaseJS(client) {
+	if (!client) {
+		var redis = require("redis");
+		client = redis.createClient();
+	}
+	return _BaseJS(client);
+};
+
+function _BaseJS(client, base = {}, inTree = []) {
 	// Yeah, that's a bit weird, but it works.
 	// "inTree" is the list of ancestors, with the generating ancestor as the first
 	// element and the immediate parent as the last.
@@ -43,7 +51,7 @@ module.exports = function BaseJS(client, base = {}, inTree = []) {
 
 				while (!done) deasync.runLoopOnce();
 				try {
-					return BaseJS(client, value, tree);
+					return _BaseJS(client, value, tree);
 				} catch(e) {
 					return value;
 				}
@@ -75,7 +83,7 @@ module.exports = function BaseJS(client, base = {}, inTree = []) {
 				}
 				while (!done) deasync.runLoopOnce();
 				try {
-					return BaseJS(client, value, tree);
+					return _BaseJS(client, value, tree);
 				} catch(e) {
 					return value;
 				}
