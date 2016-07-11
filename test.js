@@ -1,12 +1,21 @@
 var BaseJS = require("./index.js"),
 	redis = require("redis"),
-	client = redis.createClient();
+	client = redis.createClient(),
+	util = require("util");
 
 var db = BaseJS(client);
 
-db.hello = {e:'z'};
-db.hello.world = [1, ["we lollo"], 3];
+util.log("Setting hello");
+db.hello = {};
 
-db.hello.test = "e";
+util.log("Setting hello.world");
+db.hello.world = {};
 
+util.log("Setting hello.world.foo");
+db.hello.world.foo = {};
+
+util.log("Setting hello.world.foo.bar");
+db.hello.world.foo.bar = true;
+
+util.log("The next line should contain {foo: {bar: true}}.")
 console.log(db.hello.world);
