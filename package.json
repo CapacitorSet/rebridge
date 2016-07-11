@@ -3,7 +3,7 @@
     "redis": "*",
     "deasync": "0.1.7"
   },
-  "name": "js-base",
+  "name": "rebridge",
   "version": "1.0.0",
   "description": "A transparent bridge to Redis.",
   "main": "index.js",
