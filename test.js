@@ -1,7 +1,7 @@
-var BaseJS = require("./index.js"),
+var Rebridge = require("./index.js"),
 	util = require("util");
 
-var db = BaseJS();
+var db = Rebridge();
 
 util.log("Setting hello");
 db.hello = {};

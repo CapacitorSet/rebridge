@@ -1,14 +1,14 @@
 var deasync = require("deasync");
 
-module.exports = function BaseJS(client) {
+module.exports = function Rebridge(client) {
 	if (!client) {
 		var redis = require("redis");
 		client = redis.createClient();
 	}
-	return _BaseJS(client);
+	return _Rebridge(client);
 };
 
-function _BaseJS(client, base = {}, inTree = []) {
+function _Rebridge(client, base = {}, inTree = []) {
 	// Yeah, that's a bit weird, but it works.
 	// "inTree" is the list of ancestors, with the generating ancestor as the first
 	// element and the immediate parent as the last.
@@ -51,7 +51,7 @@ function _BaseJS(client, base = {}, inTree = []) {
 
 				while (!done) deasync.runLoopOnce();
 				try {
-					return _BaseJS(client, value, tree);
+					return _Rebridge(client, value, tree);
 				} catch(e) {
 					return value;
 				}
@@ -83,7 +83,7 @@ function _BaseJS(client, base = {}, inTree = []) {
 				}
 				while (!done) deasync.runLoopOnce();
 				try {
-					return _BaseJS(client, value, tree);
+					return _Rebridge(client, value, tree);
 				} catch(e) {
 					return value;
 				}
