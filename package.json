@@ -5,7 +5,7 @@
   },
   "name": "js-base",
   "version": "1.0.0",
-  "description": "A transparent interface to Redis.",
+  "description": "A transparent bridge to Redis.",
   "main": "index.js",
   "devDependencies": {},
   "scripts": {
