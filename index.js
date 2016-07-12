@@ -43,13 +43,14 @@ function _Rebridge(client, base = {}, inTree = []) {
 					var parent = tree.shift();
 					client.get(parent, function(err, reply){
 						value = JSON.parse(reply);
-						value = tree.reduce((x, d) => x[d], value);
+						value = tree.reduce((x, d) => d in x ? x[d] : undefined, value);
 						tree.unshift(parent); // Fix the array
 						done = true;
 					})
 				}
 
 				while (!done) deasync.runLoopOnce();
+				if (value == undefined) return undefined;
 				try {
 					return _Rebridge(client, value, tree);
 				} catch(e) {

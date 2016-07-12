@@ -4,7 +4,7 @@
     "deasync": "0.1.7"
   },
   "name": "rebridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A transparent bridge to Redis.",
   "main": "index.js",
   "devDependencies": {},

@@ -17,3 +17,6 @@ db.hello.world.foo.bar = true;
 
 util.log("The next line should contain {foo: {bar: true}}.")
 console.log(db.hello.world);
+
+util.log("The next line should contain undefined.");
+console.log(db.hello.fake_key);
