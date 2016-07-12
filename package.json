@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "github.com/CapacitorSet/js-base"
+    "url": "github.com/CapacitorSet/rebridge"
   },
   "keywords": [
     "redis",
