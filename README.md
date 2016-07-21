@@ -1,7 +1,7 @@
-Rebridge
-=======
+Rebridge: A transparent Javascript-Redis bridge
+========
 
-A transparent Javascript-Redis bridge.
+With Rebridge you can create JavaScript objects that are *automatically* synchronized to a Redis database.
 
 ## Install
 
@@ -11,18 +11,18 @@ npm install rebridge
 
 ##Usage
 
-```
-var Rebridge = require("rebridge"),
-	redis = require("redis"),
-	client = redis.createClient();
+```js
+var Rebridge = require("rebridge");
 
-var db = Rebridge(client);
+// Rebridge takes care of the Redis connection automatically,
+// but you can pass an existing Redis client object if you wish.
+var db = Rebridge();
 
 db.hello = {world: ["foo", "bar"]};
 // The change will be written to the database in real time.
 
 console.log(db.hello.world);
-// Returns ["foo", "bar"]
+// Prints ["foo", "bar"]
 ```
 
 ## Requirements
@@ -33,7 +33,11 @@ Rebridge uses ES6 Proxy objects, so it requires at least Node 6 (or Babel).
 
 Rebridge objects can't contain functions, circular references, and in general everything for which `x === JSON.parse(JSON.stringify(x))` doesn't hold true.
 
-Obviously, you cannot write directly to `db` (i.e. you can't do `var db = Rebridge(); db = "e"`).
+* Obviously, you cannot write directly to `db` (i.e. you can't do `var db = Rebridge(); db = "e"`).
+
+## Notable users
+
+Rebridge is used successfully in [crisbal/Telegram-Bot-Node@es6](https://github.com/crisbal/Telegram-Bot-Node/tree/es6) to create a transparent data store for each plugin.
 
 ## How it works
 

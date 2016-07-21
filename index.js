@@ -19,20 +19,20 @@ function _Rebridge(client, base = {}, inTree = []) {
 				// Avoid all the weird mess with symbols.
 				// After all, any key you can possibly read is a string.
 				// Not sure this is needed tho.
-				if (typeof key != typeof "a") return obj[key];
+				if (typeof key !== typeof "a") return obj[key];
 				// Forward the obvious cases
 				if (key in obj && !obj.hasOwnProperty(key)) return obj[key];
-				if (key == "inspect") return "thing";
+				if (key === "inspect") return "thing";
 
 				// Array cloning
 				var tree = inTree.slice(0);
 
-				var value,
-					done = false;
+				var value;
+				var done = false;
 
 				tree.push(key); // Add self to descendants
 
-				if (tree.length == 1) {
+				if (tree.length === 1) {
 					// Key is parent
 					client.get(key, function(err, reply) {
 						done = true;
@@ -41,19 +41,23 @@ function _Rebridge(client, base = {}, inTree = []) {
 					});
 				} else {
 					var parent = tree.shift();
-					client.get(parent, function(err, reply){
-						value = JSON.parse(reply);
-						value = tree.reduce((x, d) => d in x ? x[d] : undefined, value);
-						tree.unshift(parent); // Fix the array
+					client.get(parent, function(err, reply) {
 						done = true;
-					})
+						if (err) throw err;
+						value = JSON.parse(reply);
+						value = tree.reduce(
+							(x, d) => d in x ? x[d] : undefined,
+							value
+						);
+						tree.unshift(parent); // Fix the array
+					});
 				}
 
 				while (!done) deasync.runLoopOnce();
-				if (value == undefined) return undefined;
+				if (value === undefined) return undefined;
 				try {
 					return _Rebridge(client, value, tree);
-				} catch(e) {
+				} catch (e) {
 					return value;
 				}
 			},
@@ -61,44 +65,51 @@ function _Rebridge(client, base = {}, inTree = []) {
 				// Array cloning
 				var tree = inTree.slice(0);
 
-				var value,
-					done = false;
+				var value;
+				var done = false;
 
 				tree.push(key); // Add self to descendants
 
-				if (tree.length == 1) {
+				if (tree.length === 1) {
 					client.set(key, JSON.stringify(val), function(err) {
-						value = val;
 						done = true;
+						if (err) throw err;
+						value = val;
 					});
 				} else {
 					var parent = tree.shift();
-					client.get(parent, function(err, reply){
+					client.get(parent, function(err, reply) {
+						if (err) throw err;
 						value = JSON.parse(reply);
 						editTree(value, tree, val);
-						client.set(parent, JSON.stringify(value), function() {
-							done = true;
-						})
+						client.set(
+							parent,
+							JSON.stringify(value),
+							function(err) {
+								done = true;
+								if (err) throw err;
+							}
+						);
 						tree.unshift(parent); // Fix the array
-					})
+					});
 				}
 				while (!done) deasync.runLoopOnce();
 				try {
 					return _Rebridge(client, value, tree);
-				} catch(e) {
+				} catch (e) {
 					return value;
 				}
 			}
 		}
-	)
+	);
 }
 
 function editTree(tree, path, newValue) {
-	if (path.length == 0) return newValue;
+	if (path.length === 0) return newValue;
 	let key = path.shift();
-	if (!tree[key])
-		tree[key] = newValue;
-	else
+	if (tree[key])
 		tree[key] = editTree(tree[key], path, newValue);
+	else
+		tree[key] = newValue;
 	return tree;
 }
