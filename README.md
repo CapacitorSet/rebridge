@@ -1,7 +1,7 @@
-Rebridge: A transparent Javascript-Redis bridge
+Rebridge
 ========
 
-With Rebridge you can create JavaScript objects that are *automatically* synchronized to a Redis database.
+Rebridge is a transparent Javascript-Redis bridge. You can use it to create JavaScript objects that are *automatically* synchronized to a Redis database.
 
 ## Install
 
