@@ -27,7 +27,7 @@ console.log(db.hello.world);
 
 ## Requirements
 
-Rebridge uses ES6 Proxy objects, so it requires at least Node 6 (or Babel).
+Rebridge uses ES6 Proxy objects, so it requires at least Node 6.
 
 ## Limitations
 
