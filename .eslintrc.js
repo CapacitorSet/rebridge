@@ -1,5 +1,4 @@
 module.exports = {
-    "parser": "babel-eslint",
     "extends": "google",
     "rules": {
         "camelcase": 1,

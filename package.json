@@ -1,24 +1,28 @@
 {
-  "dependencies": {
-    "redis": "*",
-    "deasync": "0.1.7"
-  },
   "name": "rebridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A transparent bridge to Redis.",
   "main": "index.js",
-  "devDependencies": {},
-  "scripts": {
-    "test": "node test.js"
-  },
   "repository": {
     "type": "git",
-    "url": "github.com/CapacitorSet/rebridge"
+    "url": "git+https://github.com/CapacitorSet/rebridge.git"
   },
   "keywords": [
     "redis",
     "database"
   ],
-  "author": "Capacitor Set",
-  "license": "MIT"
+  "author": "@CapacitorSet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/CapacitorSet/rebridge/issues"
+  },
+  "homepage": "https://github.com/CapacitorSet/rebridge",
+  "dependencies": {
+    "deasync": "0.1.7",
+    "redis": "2.6.2"
+  },
+  "devDependencies": {
+    "eslint": "2.9.0",
+    "eslint-config-google": "0.5.0"
+  }
 }
