@@ -99,6 +99,45 @@ function _Rebridge(client, base = {}, inTree = []) {
 				} catch (e) {
 					return value;
 				}
+			},
+			deleteProperty: function(obj, key, val) {
+				// Array cloning
+				var tree = inTree.slice(0);
+
+				var value;
+				var done = false;
+
+				tree.push(key); // Add self to descendants
+
+				if (tree.length === 1) {
+					client.del(key, function(err) {
+						done = true;
+						if (err) throw err;
+						value = val;
+					});
+				} else {
+					var parent = tree.shift();
+					client.get(parent, function(err, reply) {
+						if (err) throw err;
+						value = JSON.parse(reply);
+						deleteFromTree(value, tree);
+						client.set(
+							parent,
+							JSON.stringify(value),
+							function(err) {
+								done = true;
+								if (err) throw err;
+							}
+						);
+						tree.unshift(parent); // Fix the array
+					});
+				}
+				while (!done) deasync.runLoopOnce();
+				try {
+					return _Rebridge(client, value, tree);
+				} catch (e) {
+					return value;
+				}
 			}
 		}
 	);
@@ -111,5 +150,14 @@ function editTree(tree, path, newValue) {
 		tree[key] = editTree(tree[key], path, newValue);
 	else
 		tree[key] = newValue;
+	return tree;
+}
+
+function deleteFromTree(tree, path) {
+	let key = path.shift();
+	if (tree[key] && path.length > 0)
+		tree[key] = deleteFromTree(tree[key], path);
+	else
+		delete tree[key];
 	return tree;
 }

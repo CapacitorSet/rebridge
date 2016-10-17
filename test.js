@@ -25,3 +25,8 @@ util.log("The next line should contain [1, 2, 4].");
 db.hello = [1, 2, 3, 4];
 db.hello.splice(2, 1);
 console.log(db.hello);
+
+util.log("The next line should contain {}.");
+db.example = {foo: "bar"};
+delete db.example.foo;
+console.log(db.example);
