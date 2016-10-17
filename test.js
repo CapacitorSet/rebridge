@@ -30,3 +30,14 @@ util.log("The next line should contain {}.");
 db.example = {foo: "bar"};
 delete db.example.foo;
 console.log(db.example);
+
+console.log("---------");
+console.log("Experimental test (currently fails):");
+
+const index = "2"
+
+db.example.replacements = [{f:"f"}, {f:"f"}, {f:"f"}, {f:"f"}, {f:"f"}];
+
+db.example.replacements.splice(Number(index), 1);
+
+console.log(db.example);
