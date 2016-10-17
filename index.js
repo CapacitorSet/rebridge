@@ -93,11 +93,7 @@ function _Rebridge(client, base = {}, inTree = []) {
 					});
 				}
 				while (!done) deasync.runLoopOnce();
-				try {
-					return _Rebridge(client, value, tree);
-				} catch (e) {
-					return value;
-				}
+				return true;
 			},
 			deleteProperty: function(obj, key, val) {
 				// Array cloning
