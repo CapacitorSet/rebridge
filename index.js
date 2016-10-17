@@ -22,7 +22,6 @@ function _Rebridge(client, base = {}, inTree = []) {
 				if (typeof key !== typeof "a") return obj[key];
 				// Forward the obvious cases
 				if (key in obj && !obj.hasOwnProperty(key)) return obj[key];
-				if (key === "inspect") return "thing";
 
 				// Array cloning
 				var tree = inTree.slice(0);
