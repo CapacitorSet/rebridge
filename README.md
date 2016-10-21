@@ -45,6 +45,6 @@ Rebridge is used successfully in [crisbal/Telegram-Bot-Node@es6](https://github.
 
 `Rebridge()` returns an ES6 Proxy object around `{}`. When you try to read one of its properties, the getter intercepts the call, retrieves and deserializes the result from the database, and returns that instead; the same happens when you write to it.
 
-The Proxy will forward the native methods and properties transparently, so that the objects it returns should behave the same native objects; if this is not the case, file an issue on GitHub.
+The Proxy will forward the native methods and properties transparently, so that the objects it returns should behave the same as native objects; if this is not the case, file an issue on GitHub.
 
 First-level objects (eg. `db.foo`) correspond to keys in the Redis database; they are serialized using JSON. When requesting deeper objects (eg. `db.foo.bar.baz`), the first-level object (`db.foo`) is deserialized to a native object, which is then accessed in the standard way.
