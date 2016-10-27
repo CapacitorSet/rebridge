@@ -1,4 +1,5 @@
 var deasync = require("deasync");
+var CircularJSON = require("circular-json");
 
 module.exports = function Rebridge(client) {
 	if (!client) {
@@ -36,14 +37,14 @@ function _Rebridge(client, base = {}, inTree = []) {
 					client.get(key, function(err, reply) {
 						done = true;
 						if (err) throw err;
-						value = JSON.parse(reply);
+						value = CircularJSON.parse(reply);
 					});
 				} else {
 					var parent = tree.shift();
 					client.get(parent, function(err, reply) {
 						done = true;
 						if (err) throw err;
-						value = JSON.parse(reply);
+						value = CircularJSON.parse(reply);
 						value = tree.reduce(
 							(x, d) => d in x ? x[d] : undefined,
 							value
@@ -70,7 +71,7 @@ function _Rebridge(client, base = {}, inTree = []) {
 				tree.push(key); // Add self to descendants
 
 				if (tree.length === 1) {
-					client.set(key, JSON.stringify(val), function(err) {
+					client.set(key, CircularJSON.stringify(val), function(err) {
 						done = true;
 						if (err) throw err;
 						value = val;
@@ -79,11 +80,11 @@ function _Rebridge(client, base = {}, inTree = []) {
 					var parent = tree.shift();
 					client.get(parent, function(err, reply) {
 						if (err) throw err;
-						value = JSON.parse(reply);
+						value = CircularJSON.parse(reply);
 						editTree(value, tree, val);
 						client.set(
 							parent,
-							JSON.stringify(value),
+							CircularJSON.stringify(value),
 							function(err) {
 								done = true;
 								if (err) throw err;
@@ -114,11 +115,11 @@ function _Rebridge(client, base = {}, inTree = []) {
 					var parent = tree.shift();
 					client.get(parent, function(err, reply) {
 						if (err) throw err;
-						value = JSON.parse(reply);
+						value = CircularJSON.parse(reply);
 						deleteFromTree(value, tree);
 						client.set(
 							parent,
-							JSON.stringify(value),
+							CircularJSON.stringify(value),
 							function(err) {
 								done = true;
 								if (err) throw err;
