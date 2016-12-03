@@ -69,6 +69,7 @@ function ProxiedWrapper(promise, rootKey) {
 							let rootValue = JSON.parse(json);
 							if (rootValue === null) rootValue = {};
 							if (obj.tree.length > 0) nestedSet(rootValue, obj.tree, val);
+							else rootValue = val;
 							json = JSON.stringify(rootValue);
 							module.exports.redis.hset("rebridge", rootKey, json, err => {
 								if (err) return reject(err);
