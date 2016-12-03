@@ -14,17 +14,17 @@ npm install rebridge
 ##Usage
 
 ```js
-var Rebridge = require("rebridge");
+const Rebridge = require("rebridge");
+const redis = require("redis");
 
-// Rebridge takes care of the Redis connection automatically,
-// but you can pass an existing Redis client object if you wish.
-var db = Rebridge();
+const client = redis.createClient();
+const db = new Rebridge(redis);
 
-db.hello = {world: ["foo", "bar"]};
-// The change will be written to the database in real time.
-
-console.log(db.hello.world);
-// Prints ["foo", "bar"]
+db.hello
+	.set({world: ["foo", "bar"]})
+	.then(() => db.hello.world._promise)
+	.then(value => console.log(value))
+	.catch(err => console.log("An error occurred:", err));
 ```
 
 ## Requirements
