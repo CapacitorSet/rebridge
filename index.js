@@ -1,159 +1,136 @@
-var deasync = require("deasync");
-var CircularJSON = require("circular-json");
+"use strict";
 
-module.exports = function Rebridge(client) {
-	if (!client) {
-		var redis = require("redis");
-		client = redis.createClient();
+const assert = require("assert");
+
+// http://stackoverflow.com/a/18937118
+function nestedSet(obj, path, value) {
+	assert.notStrictEqual(typeof value, "undefined");
+	let schema = obj; // a moving reference to internal objects within obj
+	const len = path.length;
+	// This can _not_ be refactored to for..of
+	for (let i = 0; i < len - 1; i++) {
+		const elem = path[i];
+		if (!schema[elem]) schema[elem] = {};
+		schema = schema[elem];
 	}
-	return _Rebridge(client);
-};
 
-function _Rebridge(client, base = {}, inTree = []) {
-	// Yeah, that's a bit weird, but it works.
-	// "inTree" is the list of ancestors, with the generating ancestor as the first
-	// element and the immediate parent as the last.
+	schema[path[len - 1]] = value;
+}
+
+/* Gets a "root value" from Redis (i.e. one stored in a Redis hash),
+ * deserializes it from JSON, and returns a promise.
+ * Also contains a "tree" property, which is used when navigating the
+ * deserialized object.
+ */
+function RedisWrapper(key) {
+	return {
+		_promise: new Promise(
+			(resolve, reject) => module.exports.redis.hget(
+				"rebridge",
+				key,
+				(err, json) => {
+					if (err) return reject(err);
+					try {
+						const val = JSON.parse(json);
+						return resolve(val);
+					} catch (e) {
+						return reject(e);
+					}
+				}
+			),
+			[]
+		),
+		tree: []
+	};
+}
+
+function ProxiedWrapper(promise, rootKey) {
 	return new Proxy(
-		base,
+		promise,
 		{
-			get: function(obj, key) {
-				// Avoid all the weird mess with symbols.
-				// After all, any key you can possibly read is a string.
-				// Not sure this is needed tho.
-				if (typeof key !== typeof "a") return obj[key];
-				// Forward the obvious cases
-				if (key in obj && !obj.hasOwnProperty(key)) return obj[key];
-
-				// Array cloning
-				var tree = inTree.slice(0);
-
-				var value;
-				var done = false;
-
-				tree.push(key); // Add self to descendants
-
-				if (tree.length === 1) {
-					// Key is parent
-					client.get(key, function(err, reply) {
-						done = true;
-						if (err) throw err;
-						value = CircularJSON.parse(reply);
-					});
-				} else {
-					var parent = tree.shift();
-					client.get(parent, function(err, reply) {
-						done = true;
-						if (err) throw err;
-						value = CircularJSON.parse(reply);
-						value = tree.reduce(
-							(x, d) => d in x ? x[d] : undefined,
-							value
-						);
-						tree.unshift(parent); // Fix the array
-					});
-				}
-
-				while (!done) deasync.runLoopOnce();
-				if (value === undefined) return undefined;
-				try {
-					return _Rebridge(client, value, tree);
-				} catch (e) {
-					return value;
-				}
-			},
-			set: function(obj, key, val) {
-				// Array cloning
-				var tree = inTree.slice(0);
-
-				var value;
-				var done = false;
-
-				tree.push(key); // Add self to descendants
-
-				if (tree.length === 1) {
-					client.set(key, CircularJSON.stringify(val), function(err) {
-						done = true;
-						if (err) throw err;
-						value = val;
-					});
-				} else {
-					var parent = tree.shift();
-					client.get(parent, function(err, reply) {
-						if (err) throw err;
-						value = CircularJSON.parse(reply);
-						editTree(value, tree, val);
-						client.set(
-							parent,
-							CircularJSON.stringify(value),
-							function(err) {
-								done = true;
-								if (err) throw err;
+			get: (obj, key) => {
+				if (typeof key === "symbol" || key === "inspect" || key in obj) {
+					const ret = obj[key];
+					if (key === "_promise") {
+						return ret.then(value => {
+							while (obj.tree.length > 0) {
+								const curKey = obj.tree.shift();
+								value = value[curKey];
 							}
-						);
-						tree.unshift(parent); // Fix the array
+							return value;
+						});
+					}
+					return ret;
+				}
+				if (key === "set") {
+					return val => new Promise((resolve, reject) => {
+						module.exports.redis.hget("rebridge", rootKey, (err, json) => {
+							if (err) return reject(err);
+							let rootValue = JSON.parse(json);
+							if (rootValue === null) rootValue = {};
+							if (obj.tree.length > 0) nestedSet(rootValue, obj.tree, val);
+							json = JSON.stringify(rootValue);
+							module.exports.redis.hset("rebridge", rootKey, json, err => {
+								if (err) return reject(err);
+								resolve(val);
+							});
+						});
 					});
 				}
-				while (!done) deasync.runLoopOnce();
-				return true;
+				if (key === "push") {
+					throw new Error("Pushing to Rebridge objects is not yet supported.");
+				}
+				if (key === "push") {
+					throw new Error("Popping from Rebridge objects is not yet supported.");
+				}
+				if (key === "slice") {
+					throw new Error("Slicing Rebridge objects is not yet supported.");
+				}
+				if (key === "splice") {
+					throw new Error("Splicing Rebridge objects is not yet supported.");
+				}
+				obj.tree.push(key);
+				return new ProxiedWrapper(obj, rootKey);
 			},
-			deleteProperty: function(obj, key, val) {
-				// Array cloning
-				var tree = inTree.slice(0);
-
-				var value;
-				var done = false;
-
-				tree.push(key); // Add self to descendants
-
-				if (tree.length === 1) {
-					client.del(key, function(err) {
-						done = true;
-						if (err) throw err;
-						value = val;
-					});
-				} else {
-					var parent = tree.shift();
-					client.get(parent, function(err, reply) {
-						if (err) throw err;
-						value = CircularJSON.parse(reply);
-						deleteFromTree(value, tree);
-						client.set(
-							parent,
-							CircularJSON.stringify(value),
-							function(err) {
-								done = true;
-								if (err) throw err;
-							}
-						);
-						tree.unshift(parent); // Fix the array
-					});
-				}
-				while (!done) deasync.runLoopOnce();
-				try {
-					return _Rebridge(client, value, tree);
-				} catch (e) {
-					return value;
-				}
+			set: () => {
+				throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
+			},
+			has: () => {
+				throw new Error("The `in` operator isn't supported for Rebridge objects.");
+			},
+			deleteProperty: () => {
+				throw new Error("The `delete` operator isn't supported for Rebridge objects.");
 			}
 		}
 	);
 }
 
-function editTree(tree, path, newValue) {
-	if (path.length === 0) return newValue;
-	let key = path.shift();
-	if (tree[key])
-		tree[key] = editTree(tree[key], path, newValue);
-	else
-		tree[key] = newValue;
-	return tree;
+// Catches "reads" of db.foo, and returns a wrapper around the deserialized value from Redis.
+class Rebridge {
+	constructor(client) {
+		module.exports.redis = client;
+		return new Proxy({}, {
+			get: (obj, key) => {
+				if (key in obj) {
+					return obj[key];
+				}
+				assert.deepEqual(typeof key, "string");
+				if (key === "set") {
+					throw new Error("You can't call .set on the root object. Syntax: db.foo.set(bar)");
+				}
+				return new ProxiedWrapper(new RedisWrapper(key), key);
+			},
+			set: () => {
+				throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
+			},
+			has: () => {
+				throw new Error("The `in` operator isn't supported for Rebridge objects.");
+			},
+			deleteProperty: () => {
+				throw new Error("The `delete` operator isn't supported for Rebridge objects.");
+			}
+		});
+	}
 }
 
-function deleteFromTree(tree, path) {
-	let key = path.shift();
-	if (tree[key] && path.length > 0)
-		tree[key] = deleteFromTree(tree[key], path);
-	else
-		delete tree[key];
-	return tree;
-}
+module.exports = Rebridge;
