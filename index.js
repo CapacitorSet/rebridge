@@ -171,11 +171,9 @@ function ProxiedWrapper(promise, rootKey) {
 						});
 					});
 				}
-				if (key === "slice") {
-					throw new Error("Slicing Rebridge objects is not yet supported.");
-				}
-				if (key === "splice") {
-					throw new Error("Splicing Rebridge objects is not yet supported.");
+				if (key in Array.prototype) {
+					// Array methods
+					throw new Error(`Calling ${key} on Rebridge objects is not yet supported.`);
 				}
 				obj.tree.push(key);
 				return new ProxiedWrapper(obj, rootKey);
