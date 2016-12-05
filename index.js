@@ -14,8 +14,9 @@ function nestedSet(obj, path, value) {
 		schema = schema[elem];
 	}
 
-	schema[path[len - 1]] = value;
+	return (schema[path[len - 1]] = value);
 }
+
 function nestedDelete(obj, path, prop) {
 	assert.notStrictEqual(typeof prop, "undefined");
 	let schema = obj; // a moving reference to internal objects within obj
@@ -27,7 +28,34 @@ function nestedDelete(obj, path, prop) {
 		schema = schema[elem];
 	}
 
-	delete schema[path[len - 1]][prop];
+	return (delete schema[path[len - 1]][prop]);
+}
+
+function nestedPush(obj, path, val) {
+	assert.notStrictEqual(typeof val, "undefined");
+	let schema = obj; // a moving reference to internal objects within obj
+	const len = path.length;
+	// This can _not_ be refactored to for..of
+	for (let i = 0; i < len - 1; i++) {
+		const elem = path[i];
+		if (!schema[elem]) schema[elem] = {};
+		schema = schema[elem];
+	}
+
+	return schema[path[len - 1]].push(val);
+}
+
+function nestedPop(obj, path) {
+	let schema = obj; // a moving reference to internal objects within obj
+	const len = path.length;
+	// This can _not_ be refactored to for..of
+	for (let i = 0; i < len - 1; i++) {
+		const elem = path[i];
+		if (!schema[elem]) schema[elem] = {};
+		schema = schema[elem];
+	}
+
+	return schema[path[len - 1]].pop();
 }
 
 /* Gets a "root value" from Redis (i.e. one stored in a Redis hash),
@@ -81,12 +109,13 @@ function ProxiedWrapper(promise, rootKey) {
 							if (err) return reject(err);
 							let rootValue = JSON.parse(json);
 							if (rootValue === null) rootValue = {};
-							if (obj.tree.length > 0) nestedSet(rootValue, obj.tree, val);
-							else rootValue = val;
+							const ret = (obj.tree.length > 0) ?
+								nestedSet(rootValue, obj.tree, val):
+								(rootValue = val);
 							json = JSON.stringify(rootValue);
 							module.exports.redis.hset("rebridge", rootKey, json, err => {
 								if (err) return reject(err);
-								resolve(val);
+								resolve(ret);
 							});
 						});
 					});
@@ -97,21 +126,51 @@ function ProxiedWrapper(promise, rootKey) {
 							if (err) return reject(err);
 							let rootValue = JSON.parse(json);
 							if (rootValue === null) rootValue = {};
-							if (obj.tree.length > 0) nestedDelete(rootValue, obj.tree, val);
-							else rootValue = val;
+							if (obj.tree.length === 0) throw new Error("Unsupported operation");
+							const ret = (obj.tree.length > 0) ?
+								nestedDelete(rootValue, obj.tree, val) :
+								undefined;
 							json = JSON.stringify(rootValue);
 							module.exports.redis.hset("rebridge", rootKey, json, err => {
 								if (err) return reject(err);
-								resolve(val);
+								resolve(ret);
 							});
 						});
 					});
 				}
 				if (key === "push") {
-					throw new Error("Pushing to Rebridge objects is not yet supported.");
+					return val => new Promise((resolve, reject) => {
+						module.exports.redis.hget("rebridge", rootKey, (err, json) => {
+							if (err) return reject(err);
+							let rootValue = JSON.parse(json);
+							if (rootValue === null) rootValue = {};
+							const ret = (obj.tree.length > 0) ?
+								nestedPush(rootValue, obj.tree, val) :
+								rootValue.push(val);
+							json = JSON.stringify(rootValue);
+							module.exports.redis.hset("rebridge", rootKey, json, err => {
+								if (err) return reject(err);
+								resolve(ret);
+							});
+						});
+					});
 				}
-				if (key === "push") {
-					throw new Error("Popping from Rebridge objects is not yet supported.");
+				if (key === "pop") {
+					return () => new Promise((resolve, reject) => {
+						module.exports.redis.hget("rebridge", rootKey, (err, json) => {
+							if (err) return reject(err);
+							let rootValue = JSON.parse(json);
+							if (rootValue === null) rootValue = {};
+							const ret = (obj.tree.length > 0) ?
+								nestedPop(rootValue, obj.tree) :
+								rootValue.pop();
+							json = JSON.stringify(rootValue);
+							module.exports.redis.hset("rebridge", rootKey, json, err => {
+								if (err) return reject(err);
+								resolve(ret);
+							});
+						});
+					});
 				}
 				if (key === "slice") {
 					throw new Error("Slicing Rebridge objects is not yet supported.");
