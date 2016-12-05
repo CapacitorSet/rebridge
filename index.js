@@ -126,10 +126,9 @@ function ProxiedWrapper(promise, rootKey) {
 							if (err) return reject(err);
 							let rootValue = JSON.parse(json);
 							if (rootValue === null) rootValue = {};
-							if (obj.tree.length === 0) throw new Error("Unsupported operation");
 							const ret = (obj.tree.length > 0) ?
 								nestedDelete(rootValue, obj.tree, val) :
-								undefined;
+								(delete rootValue[val]);
 							json = JSON.stringify(rootValue);
 							module.exports.redis.hset("rebridge", rootKey, json, err => {
 								if (err) return reject(err);
