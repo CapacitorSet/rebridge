@@ -58,8 +58,7 @@ db.hello.set({})
 })
 .then(() => {
 */
-	console.log("---------");
-	console.log("Experimental test (currently fails):");
+	util.log("The next line should contain {0: {f:'f'}, 1: {f:'f'}, 3: {f:'f'}, 4: {f:'f'}}:");
 
 	return db.example.replacements.set({
 		0: {f: "f"},
@@ -71,9 +70,11 @@ db.hello.set({})
 })
 .then(() => {
 	const index = "2";
-	delete db.example.replacements[index];
+	return db.example.replacements.delete(index);
 })
-.then(() => {
-	console.log(db.example);
+.then(() => db.example.replacements._promise)
+.then(val => {
+	console.log(val);
+	client.quit();
 })
 .catch(err => console.log(err));

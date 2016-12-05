@@ -16,6 +16,19 @@ function nestedSet(obj, path, value) {
 
 	schema[path[len - 1]] = value;
 }
+function nestedDelete(obj, path, prop) {
+	assert.notStrictEqual(typeof prop, "undefined");
+	let schema = obj; // a moving reference to internal objects within obj
+	const len = path.length;
+	// This can _not_ be refactored to for..of
+	for (let i = 0; i < len - 1; i++) {
+		const elem = path[i];
+		if (!schema[elem]) schema[elem] = {};
+		schema = schema[elem];
+	}
+
+	delete schema[path[len - 1]][prop];
+}
 
 /* Gets a "root value" from Redis (i.e. one stored in a Redis hash),
  * deserializes it from JSON, and returns a promise.
@@ -78,6 +91,22 @@ function ProxiedWrapper(promise, rootKey) {
 						});
 					});
 				}
+				if (key === "delete") {
+					return val => new Promise((resolve, reject) => {
+						module.exports.redis.hget("rebridge", rootKey, (err, json) => {
+							if (err) return reject(err);
+							let rootValue = JSON.parse(json);
+							if (rootValue === null) rootValue = {};
+							if (obj.tree.length > 0) nestedDelete(rootValue, obj.tree, val);
+							else rootValue = val;
+							json = JSON.stringify(rootValue);
+							module.exports.redis.hset("rebridge", rootKey, json, err => {
+								if (err) return reject(err);
+								resolve(val);
+							});
+						});
+					});
+				}
 				if (key === "push") {
 					throw new Error("Pushing to Rebridge objects is not yet supported.");
 				}
@@ -100,7 +129,7 @@ function ProxiedWrapper(promise, rootKey) {
 				throw new Error("The `in` operator isn't supported for Rebridge objects.");
 			},
 			deleteProperty: () => {
-				throw new Error("The `delete` operator isn't supported for Rebridge objects.");
+				throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promsie instead");
 			}
 		}
 	);
