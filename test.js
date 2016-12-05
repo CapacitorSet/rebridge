@@ -1,3 +1,4 @@
+const assert = require("assert");
 const redis = require("redis");
 const client = redis.createClient();
 const Rebridge = require("./index.js");
@@ -5,40 +6,45 @@ const util = require("util");
 
 let db = new Rebridge(client);
 
-util.log("* Setting hello");
-db.hello.set({})
-.then(() => {
-	util.log("* Set.");
-
-	util.log("Setting hello.world");
-	return db.hello.world.set({});
-})
-.then(() => {
-	util.log("* Set.");
-
-	util.log("Setting hello.world.foo");
-	return db.hello.world.foo.set({});
-})
-.then(() => {
-	util.log("* Set.");
-
-	util.log("Setting hello.world.foo.bar");
-	return db.hello.world.foo.bar.set(true);
-})
-.then(() => {
-	util.log("* Set.");
-
-	util.log("The next line should contain {foo: {bar: true}}.");
-	return db.hello.world._promise;
-})
-.then(val => {
-	console.log(val);
-
-	util.log("The next line should contain undefined.");
-	return db.hello.fake_key._promise;
-})
-.then(val => {
-	console.log(val);
+describe("set", function() {
+	it("should set hello", () => db.hello.set({}));
+	it("should set hello.world", () => db.hello.world.set({}));
+	it("should set hello.world.foo", () => db.hello.world.foo.set({}));
+	it("should set hello.world.foo.bar", () => db.hello.world.foo.bar.set(true));
+	it(
+		"should read hello correctly",
+		() => db.hello._promise
+			.then(val => assert.deepStrictEqual(val, {world: {foo: {bar: true}}}))
+	);
+	it("should return undefined on unknown keys", () => db.hello.unknown_key._promise.then(val => assert.equal(val, undefined)));
+	it(
+		"should implement `delete` with numeric identifiers",
+		() => db.example.set({
+			1: 'one',
+			2: 'two',
+			3: 'three',
+			4: 'four'
+		})
+		.then(() => db.example.delete(3))
+		.then(() => db.example._promise)
+		.then(val => assert.deepStrictEqual(val, {1: 'one', 2: 'two', 4: 'four'}))
+	)
+	it(
+		"should implement `push`",
+		() => db.example.set([1, 2, 3])
+		.then(() => db.example.push(4))
+		.then(() => db.example._promise)
+		.then(val => assert.deepStrictEqual(val, [1, 2, 3, 4]))
+	);
+	it(
+		"should implement `pop`",
+		() => db.example.set([1, 2, 3, 4])
+		.then(() => db.example.pop())
+		.then(() => db.example._promise)
+		.then(val => assert.deepStrictEqual(val, [1, 2, 3]))
+	);
+	after(() => client.quit());
+});
 
 /*	util.log("The next line should contain [1, 2, 4].");
 	return db.hello.set([1, 2, 3, 4]);
@@ -58,23 +64,3 @@ db.hello.set({})
 })
 .then(() => {
 */
-	util.log("The next line should contain {0: {f:'f'}, 1: {f:'f'}, 3: {f:'f'}, 4: {f:'f'}}:");
-
-	return db.example.replacements.set({
-		0: {f: "f"},
-		1: {f: "f"},
-		2: {f: "f"},
-		3: {f: "f"},
-		4: {f: "f"}
-	});
-})
-.then(() => {
-	const index = "2";
-	return db.example.replacements.delete(index);
-})
-.then(() => db.example.replacements._promise)
-.then(val => {
-	console.log(val);
-	client.quit();
-})
-.catch(err => console.log(err));
