@@ -1,10 +1,11 @@
+/* eslint-env mocha */
+
 const assert = require("assert");
 const redis = require("redis");
 const client = redis.createClient();
 const Rebridge = require("./index.js");
-const util = require("util");
 
-let db = new Rebridge(client);
+const db = new Rebridge(client);
 
 describe("set", function() {
 	it("should set hello", () => db.hello.set({}));
@@ -28,7 +29,7 @@ describe("set", function() {
 		.then(() => db.example.delete(3))
 		.then(() => db.example._promise)
 		.then(val => assert.deepStrictEqual(val, {1: 'one', 2: 'two', 4: 'four'}))
-	)
+	);
 	it(
 		"should implement `push`",
 		() => db.example.set([1, 2, 3])

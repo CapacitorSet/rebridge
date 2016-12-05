@@ -24,6 +24,7 @@
     "mocha": "^3.0.0"
   },
   "scripts": {
+    "lint": "eslint .",
     "test": "mocha"
   }
 }
