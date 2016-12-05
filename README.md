@@ -23,6 +23,7 @@ const db = new Rebridge(redis);
 db.hello
 	.set({world: ["foo", "bar"]})
 	.then(() => db.hello.world._promise)
+	// Prints {foo: {}}
 	.then(value => console.log(value))
 	.catch(err => console.log("An error occurred:", err));
 ```
