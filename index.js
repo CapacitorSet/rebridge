@@ -1,50 +1,94 @@
 "use strict";
 
 const assert = require("assert");
+const Redlock = require("redlock");
+
+let redis;
+let redlock;
+const lockTTL = 1000;
+const namespace = "rebridge";
+
+function promisableGet(rootKey, permissive = false) {
+	return new Promise(
+		(resolve, reject) => redis.hget(namespace, rootKey, (err, json) => {
+			if (err) {
+				reject(err);
+				return;
+			}
+			try {
+				if (permissive && json === "undefined") return undefined;
+				resolve(JSON.parse(json) || {});
+			} catch (e) {
+				reject(e);
+			}
+		})
+	);
+}
+
+function promisableSet(key, val) {
+	assert.notStrictEqual(typeof val, "undefined");
+	let json = JSON.stringify(val);
+	try {
+		JSON.parse(json);
+	} catch (e) {
+		json = "{}";
+	}
+	return new Promise(
+		(resolve, reject) => redis.hset(namespace, key, json, err => {
+			if (err) return reject(err);
+			resolve();
+		})
+	);
+}
 
 function promisableModify(rootKey, tree, fun) {
-	return new Promise((resolve, reject) => {
-		module.exports.redis.hget("rebridge", rootKey, (err, json) => {
-			if (err) return reject(err);
-			let rootValue = JSON.parse(json) || {};
-			if (rootValue === null) rootValue = {};
-			const ret = nestedApply(rootValue, tree, fun);
-			const newJson = JSON.stringify(rootValue);
-			module.exports.redis.hset("rebridge", rootKey, newJson, err => {
-				if (err) return reject(err);
-				resolve(ret);
-			});
-		});
-	});
+	// Yes, it's ugly, but it's needed to keep variables around
+	return redlock.lock(rootKey, lockTTL)
+		.then(lock => promisableGet(rootKey)
+			.then(rootVal => nestedApply(rootVal, tree, fun))
+			.then(({newObj, ret}) => promisableSet(rootKey, newObj)
+				.then(() => lock.unlock())
+				.then(() => ret)
+		)
+	);
 }
 
 // Abstracted version of http://stackoverflow.com/a/18937118.
 // Note: this _does not work_ with nested set
 function nestedApply(obj, path, fun) {
-	if (path.length === 0) return fun(obj);
-	// https://github.com/petkaantonov/bluebird/wiki/Optimization-killers#3-managing-arguments
-	let schema = obj;
-	const len = path.length;
-	for (let i = 0; i < len - 1; i++) {
-		const elem = path[i];
-		if (!schema[elem]) schema[elem] = {};
-		schema = schema[elem];
+	if (path.length === 0) {
+		const _ret = fun(obj);
+		return {
+			ret: _ret,
+			newObj: obj
+		};
 	}
-	return fun(schema[path[len - 1]]);
+	// https://github.com/petkaantonov/bluebird/wiki/Optimization-killers#3-managing-arguments
+	let newObj = obj;
+	const last = path.pop();
+	for (const elem of path) {
+		if (!newObj[elem])
+			newObj[elem] = {};
+		newObj = newObj[elem];
+	}
+	const ret = fun(newObj[last]);
+	return {
+		ret,
+		newObj
+	};
 }
 
 function nestedSet(obj, path, value) {
 	assert.notStrictEqual(typeof value, "undefined");
-	let schema = obj; // a moving reference to internal objects within obj
-	const len = path.length;
-	// This can _not_ be refactored to for..of
-	for (let i = 0; i < len - 1; i++) {
-		const elem = path[i];
-		if (!schema[elem]) schema[elem] = {};
-		schema = schema[elem];
+	let newObj = obj;
+	const last = path.pop();
+	for (const elem of path) {
+		if (!newObj[elem])
+			newObj[elem] = {};
+		newObj = newObj[elem];
 	}
 
-	return (schema[path[len - 1]] = value);
+	return (newObj[last] = value);
 }
 
 /* Gets a "root value" from Redis (i.e. one stored in a Redis hash),
@@ -55,7 +99,7 @@ function nestedSet(obj, path, value) {
 function RedisWrapper(key) {
 	return {
 		_promise: new Promise(
-			(resolve, reject) => module.exports.redis.hget(
+			(resolve, reject) => redis.hget(
 				"rebridge",
 				key,
 				(err, json) => {
@@ -94,25 +138,21 @@ function ProxiedWrapper(promise, rootKey) {
 					return obj[key];
 				// .set special Promise
 				if (key === "set") {
-					return val => new Promise((resolve, reject) => {
-						module.exports.redis.hget("rebridge", rootKey, (err, json) => {
-							if (err) return reject(err);
-							let rootValue = JSON.parse(json);
-							if (rootValue === null) rootValue = {};
-							const ret = (obj.tree.length > 0) ?
-								nestedSet(rootValue, obj.tree, val) :
-								(rootValue = val);
-							const newJson = JSON.stringify(rootValue);
-							module.exports.redis.hset("rebridge", rootKey, newJson, err => {
-								if (err) return reject(err);
-								resolve(ret);
-							});
+					return val => promisableGet(rootKey, true)
+						.then(rootValue => {
+							let ret;
+							if (obj.tree.length > 0) {
+								ret = nestedSet(rootValue, obj.tree, val);
+							} else {
+								ret = (rootValue = val);
+							}
+							return promisableSet(rootKey, rootValue).then(() => ret);
 						});
-					});
 				}
 				// .delete special Promise
 				if (key === "delete")
-					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]);
+					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]
+					);
 				// .in special Promise
 				if (key === "in")
 					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
@@ -125,9 +165,9 @@ function ProxiedWrapper(promise, rootKey) {
 				This promise walks the `rootKey` object using `obj.tree` as a path, and
 				applies the given function passing the same arguments.
 
-				    | Eg. if `key` is `"push"` and `rootKey` is
-				    |
-				    |     {
+						| Eg. if `key` is `"push"` and `rootKey` is
+						|
+						|     {
 					|         a: {
 					|             b: {
 					|                 c: [1]
@@ -145,12 +185,14 @@ function ProxiedWrapper(promise, rootKey) {
 					| `db.foo.a.b.c.push(10)`), it will call `item => item.push(10)`.
 				 */
 				if (forceFunc || (!forceProp && key in Array.prototype)) {
-					if (forceFunc) key = key.replace(/^__func_/i, "");
+					if (forceFunc)
+						key = key.replace(/^__func_/i, "");
 					return function() {
 						return promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
 					};
 				}
-				if (forceProp) key = key.replace(/^__prop_/i, "");
+				if (forceProp)
+					key = key.replace(/^__prop_/i, "");
 				obj.tree.push(key);
 				return new ProxiedWrapper(obj, rootKey);
 			},
@@ -169,8 +211,19 @@ function ProxiedWrapper(promise, rootKey) {
 
 // Catches "reads" of db.foo, and returns a wrapper around the deserialized value from Redis.
 class Rebridge {
-	constructor(client) {
-		module.exports.redis = client;
+	constructor(client, {lock, clients} = {
+		lock: true,
+		clients: [client]
+	}) {
+		redis = client;
+		if (lock)
+			redlock = new Redlock(clients);
+		else // Use a dummy lock
+			redlock = {
+				lock: () => Promise.resolve({
+					unlock: () => Promise.resolve()
+				})
+			};
 		return new Proxy({}, {
 			get: (obj, key) => {
 				if (key in obj) {
