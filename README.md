@@ -2,6 +2,7 @@ Rebridge
 ========
 
 [![npm](https://img.shields.io/npm/v/rebridge.svg?maxAge=2592000)](https://www.npmjs.com/package/rebridge)
+[![Build Status](https://travis-ci.org/CapacitorSet/rebridge.svg?branch=master)](https://travis-ci.org/CapacitorSet/rebridge)
 
 Rebridge is a transparent Javascript-Redis bridge. You can use it to create JavaScript objects that are *automatically* synchronized to a Redis database.
 
