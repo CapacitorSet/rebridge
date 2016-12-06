@@ -19,7 +19,7 @@ describe("set", function() {
 	);
 	it("should return undefined on unknown keys", () => db.hello.unknown_key._promise.then(val => assert.equal(val, undefined)));
 	it(
-		"should implement `delete` with numeric identifiers",
+		"should implement the `delete` operator",
 		() => db.example.set({
 			1: 'one',
 			2: 'two',
@@ -29,6 +29,17 @@ describe("set", function() {
 		.then(() => db.example.delete(3))
 		.then(() => db.example._promise)
 		.then(val => assert.deepStrictEqual(val, {1: 'one', 2: 'two', 4: 'four'}))
+	);
+	it(
+		"should implement the `in` operator",
+		() => db.example.set({
+			1: 'one',
+			2: 'two',
+			3: 'three',
+			4: 'four'
+		})
+		.then(() => db.example.in(3))
+		.then(val => assert.strictEqual(val, true))
 	);
 	it(
 		"should implement `push`",
