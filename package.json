@@ -17,7 +17,9 @@
     "url": "https://github.com/CapacitorSet/rebridge/issues"
   },
   "homepage": "https://github.com/CapacitorSet/rebridge",
-  "dependencies": {},
+  "dependencies": {
+    "redlock": "2.1.0"
+  },
   "devDependencies": {
     "eslint": "2.9.0",
     "eslint-config-google": "0.5.0",
