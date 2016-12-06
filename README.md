@@ -19,14 +19,29 @@ const Rebridge = require("rebridge");
 const redis = require("redis");
 
 const client = redis.createClient();
-const db = new Rebridge(redis);
+const db = new Rebridge(client);
 
-db.hello
-	.set({world: ["foo", "bar"]})
-	.then(() => db.hello.world._promise)
-	// Prints {foo: {}}
-	.then(value => console.log(value))
-	.catch(err => console.log("An error occurred:", err));
+db.users.set([])
+    .then(() => Promise.all([
+        db.users.push({
+            username: "johndoe",
+            email: "johndoe@domain.com"
+        }),
+        db.users.push({
+            username: "foobar",
+            email: "foobar@domain.com"
+        }),
+        db.users.push({
+            username: "CapacitorSet",
+            email: "CapacitorSet@users.noreply.github.com"
+        })
+    ]))
+    .then(() => db.users._promise)
+    .then(arr => console.log("Users:", arr)) // Prints the list of users
+    .then(() => db.users.filter(user => user.username === "CapacitorSet"))
+    .then(([me]) => console.log("Me:", me)) // Prints [{username: "CapacitorSet", email: "..."}]
+    .then(() => client.quit())
+    .catch(err => console.log("An error occurred:", err));
 ```
 
 ## Requirements
@@ -35,13 +50,9 @@ Rebridge uses ES6 Proxy objects, so it requires at least Node 6.
 
 ## Limitations
 
-Rebridge objects can't contain functions, circular references, and in general everything for which `x === JSON.parse(JSON.stringify(x))` doesn't hold true.
+* Rebridge objects can't contain functions, circular references, and in general everything for which `x === JSON.parse(JSON.stringify(x))` doesn't hold true.
 
 * Obviously, you cannot write directly to `db` (i.e. you can't do `var db = Rebridge(); db = "e"`).
-
-## Notable users
-
-Rebridge is used successfully in [crisbal/Telegram-Bot-Node@es6](https://github.com/crisbal/Telegram-Bot-Node/tree/es6) to create a transparent data store for each plugin.
 
 ## How it works
 
