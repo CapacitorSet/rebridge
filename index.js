@@ -79,19 +79,20 @@ function ProxiedWrapper(promise, rootKey) {
 		promise,
 		{
 			get: (obj, key) => {
-				if (typeof key === "symbol" || key === "inspect" || key in obj) {
-					const ret = obj[key];
-					if (key === "_promise") {
-						return ret.then(value => {
-							while (obj.tree.length > 0) {
-								const curKey = obj.tree.shift();
-								value = value[curKey];
-							}
-							return value;
-						});
-					}
-					return ret;
+				// _promise property
+				if (key === "_promise") {
+					return obj._promise.then(value => {
+						while (obj.tree.length > 0) {
+							const curKey = obj.tree.shift();
+							value = value[curKey];
+						}
+						return value;
+					});
 				}
+				// Standard stuff
+				if (typeof key === "symbol" || key === "inspect" || key in obj)
+					return obj[key];
+				// .set special Promise
 				if (key === "set") {
 					return val => new Promise((resolve, reject) => {
 						module.exports.redis.hget("rebridge", rootKey, (err, json) => {
@@ -109,9 +110,15 @@ function ProxiedWrapper(promise, rootKey) {
 						});
 					});
 				}
-				if (key === "delete") {
+				// .delete special Promise
+				if (key === "delete")
 					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]);
-				}
+				// .in special Promise
+				if (key === "in")
+					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
+
+				const forceFunc = /^__func_/.test(key);
+				const forceProp = /^__prop_/.test(key);
 				/*
 				This is complex, but rather elegant.
 				If the user is calling an Array method (eg. push), it returns a promise.
@@ -137,10 +144,13 @@ function ProxiedWrapper(promise, rootKey) {
 					| on that. So, when the function is actually executed (eg.
 					| `db.foo.a.b.c.push(10)`), it will call `item => item.push(10)`.
 				 */
-				if (key in Array.prototype)
+				if (forceFunc || (!forceProp && key in Array.prototype)) {
+					if (forceFunc) key = key.replace(/^__func_/i, "");
 					return function() {
 						return promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
 					};
+				}
+				if (forceProp) key = key.replace(/^__prop_/i, "");
 				obj.tree.push(key);
 				return new ProxiedWrapper(obj, rootKey);
 			},
@@ -148,7 +158,7 @@ function ProxiedWrapper(promise, rootKey) {
 				throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
 			},
 			has: () => {
-				throw new Error("The `in` operator isn't supported for Rebridge objects.");
+				throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead.");
 			},
 			deleteProperty: () => {
 				throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promsie instead");
