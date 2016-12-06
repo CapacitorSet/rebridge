@@ -1,6 +1,6 @@
 {
   "name": "rebridge",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "A transparent bridge to Redis.",
   "main": "index.js",
   "repository": {
