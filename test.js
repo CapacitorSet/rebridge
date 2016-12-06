@@ -41,8 +41,23 @@ describe("set", function() {
 		"should implement `pop`",
 		() => db.example.set([1, 2, 3, 4])
 		.then(() => db.example.pop())
+		.then(val => assert.strictEqual(val, 4))
 		.then(() => db.example._promise)
 		.then(val => assert.deepStrictEqual(val, [1, 2, 3]))
+	);
+	it(
+		"should implement `slice`",
+		() => db.example.set([1, 2, 3, 4])
+		.then(() => db.example.slice(1, 3))
+		.then(val => assert.deepStrictEqual(val, [2, 3]))
+	);
+	it(
+		"should implement `splice`",
+		() => db.example.set(["foo", "bar", "baz", "test"])
+		.then(() => db.example.splice(1, 2))
+		.then(val => assert.deepStrictEqual(val, ["bar", "baz"]))
+		.then(() => db.example._promise)
+		.then(val => assert.deepStrictEqual(val, ["foo", "test"]))
 	);
 	after(() => client.quit());
 });
