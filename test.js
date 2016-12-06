@@ -72,6 +72,18 @@ it(
 		.then(() => db.example._promise)
 		.then(val => assert.deepStrictEqual(val, ["foo", "test"]))
 );
+it(
+	"should respect forced properties",
+	() => db.example.set({push: "foo bar"})
+		.then(() => db.example.__prop_push._promise)
+		.then(val => assert.strictEqual(val, "foo bar"))
+);
+it(
+	"should respect forced functions",
+	() => db.example.set("foo bar")
+		.then(() => db.example.__func_toUpperCase())
+		.then(val => assert.strictEqual(val, "FOO BAR"))
+);
 after(() => client.quit());
 
 /*	util.log("The next line should contain [1, 2, 4].");
