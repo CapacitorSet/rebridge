@@ -230,19 +230,40 @@ class Rebridge {
 					return obj[key];
 				}
 				assert.deepEqual(typeof key, "string");
-				if (key === "set") {
+				if (key === "set")
 					throw new Error("You can't call .set on the root object. Syntax: db.foo.set(bar)");
-				}
+				if (key === "in")
+					return key => new Promise(
+						(resolve, reject) => redis.hexists(
+							namespace,
+							key,
+							(err, val) => {
+								if (err) return reject(err);
+								resolve(val === 1);
+							}
+						)
+					);
+				if (key === "delete")
+					return key => new Promise(
+						(resolve, reject) => redis.hdel(
+							namespace,
+							key,
+							err => {
+								if (err) return reject(err);
+								resolve(true);
+							}
+						)
+					);
 				return new ProxiedWrapper(new RedisWrapper(key), key);
 			},
 			set: () => {
 				throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
 			},
 			has: () => {
-				throw new Error("The `in` operator isn't supported for Rebridge objects.");
+				throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead");
 			},
 			deleteProperty: () => {
-				throw new Error("The `delete` operator isn't supported for Rebridge objects.");
+				throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise isntead");
 			}
 		});
 	}
