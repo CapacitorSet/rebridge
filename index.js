@@ -1,12 +1,15 @@
 "use strict";
 
 const assert = require("assert");
+const deasync = require("deasync");
 const Redlock = require("redlock");
 
 let redis;
 let redlock;
 const lockTTL = 1000;
 const namespace = "rebridge";
+
+let deasynced;
 
 function promisableGet(rootKey, permissive = false) {
 	return new Promise(
@@ -211,10 +214,12 @@ function ProxiedWrapper(promise, rootKey) {
 
 // Catches "reads" of db.foo, and returns a wrapper around the deserialized value from Redis.
 class Rebridge {
-	constructor(client, {lock, clients} = {
+	constructor(client, {lock, clients, mode} = {
 		lock: true,
-		clients: [client]
+		clients: [client],
+		mode: "promise"
 	}) {
+		deasynced = mode == "deasync";
 		redis = client;
 		if (lock)
 			redlock = new Redlock(clients);
@@ -256,8 +261,17 @@ class Rebridge {
 					);
 				return new ProxiedWrapper(new RedisWrapper(key), key);
 			},
-			set: () => {
-				throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
+			set: (target, prop, val) => {
+				if (!deasynced)
+					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
+				let done = false;
+				let err = null;
+				redis.hset(namespace, prop, JSON.stringify(val), e => {
+					done = true;
+					err = e;
+				});
+				deasync.loopWhile(() => !done);
+				if (err) throw err;
 			},
 			has: () => {
 				throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead");
