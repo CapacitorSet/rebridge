@@ -27,6 +27,6 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "mocha"
+    "test": "mocha test/deasync.js && mocha test/promiseful.js"
   }
 }
