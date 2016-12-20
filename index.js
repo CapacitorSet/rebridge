@@ -282,7 +282,7 @@ class Rebridge {
 				assert.deepEqual(typeof key, "string");
 				if (key === "set")
 					throw new Error("You can't call .set on the root object. Syntax: db.foo.set(bar)");
-				if (key === "in")
+				if (!deasynced && key === "in")
 					return key => new Promise(
 						(resolve, reject) => redis.hexists(
 							namespace,
@@ -317,12 +317,35 @@ class Rebridge {
 				});
 				deasync.loopWhile(() => !done);
 				if (err) throw err;
+				return true;
 			},
-			has: () => {
-				throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead");
+			has: (target, prop) => {
+				if (!deasynced)
+					throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead");
+				let done = false;
+				let err;
+				let ret;
+				redis.hexists(namespace, prop, (e, val) => {
+					done = true;
+					err = e;
+					ret = val;
+				});
+				deasync.loopWhile(() => !done);
+				if (err) throw err;
+				return ret;
 			},
-			deleteProperty: () => {
-				throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise isntead");
+			deleteProperty: (target, prop) => {
+				if (!deasynced)
+					throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise isntead");
+				let done = false;
+				let err;
+				redis.hdel(namespace, prop, e => {
+					done = true;
+					err = e;
+				});
+				deasync.loopWhile(() => !done);
+				if (err) throw err;
+				return true;
 			}
 		});
 	}

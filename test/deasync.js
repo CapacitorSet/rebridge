@@ -20,8 +20,13 @@ describe("Deasync mode", function() {
 		it("should return undefined on unknown keys", () => {
 			assert.equal(db.unknown_key._value, undefined);
 		});
-		it.skip("should allow the `in` operator", () => assert.throws(() => "hello" in db));
-		it.skip("should allow the `delete` operator", () => assert.throws(() => delete db.hello));
+		it("should allow the `in` operator", () => {
+			assert.equal("hello" in db, true);
+		});
+		it("should allow the `delete` operator", () => {
+			delete db.hello;
+			assert.equal("hello" in db, false);
+		});
 	});
 	describe("second level", function() {
 		it("should set hello.world", function() {
