@@ -162,7 +162,7 @@ function ProxiedWrapper(promise, rootKey) {
 				if (typeof key === "symbol" || key === "inspect" || key in obj)
 					return obj[key];
 				// .set special Promise
-				if (deasynced && key === "set") {
+				if (!deasynced && key === "set") {
 					return val => promisableGet(rootKey, true)
 						.then(rootValue => {
 							let ret;
@@ -175,11 +175,11 @@ function ProxiedWrapper(promise, rootKey) {
 						});
 				}
 				// .delete special Promise
-				if (deasynced && key === "delete")
+				if (!deasynced && key === "delete")
 					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]
 					);
 				// .in special Promise
-				if (deasynced && key === "in")
+				if (!deasynced && key === "in")
 					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
 
 				const forceFunc = /^__func_/.test(key);
