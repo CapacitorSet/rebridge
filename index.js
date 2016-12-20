@@ -189,9 +189,9 @@ function ProxiedWrapper(promise, rootKey) {
 				This promise walks the `rootKey` object using `obj.tree` as a path, and
 				applies the given function passing the same arguments.
 
-						| Eg. if `key` is `"push"` and `rootKey` is
-						|
-						|     {
+					| Eg. if `key` is `"push"` and `rootKey` is
+					|
+					|     {
 					|         a: {
 					|             b: {
 					|                 c: [1]
@@ -212,7 +212,23 @@ function ProxiedWrapper(promise, rootKey) {
 					if (forceFunc)
 						key = key.replace(/^__func_/i, "");
 					return function() {
-						return promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
+						if (!deasynced)
+							return promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
+						let done = false;
+						let err;
+						let ret;
+						promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments))
+							.then(val => {
+								done = true;
+								ret = val;
+							})
+							.catch(e => {
+								done = true;
+								err = e;
+							});
+						deasync.loopWhile(() => !done);
+						if (err) throw err;
+						return ret;
 					};
 				}
 				if (forceProp)

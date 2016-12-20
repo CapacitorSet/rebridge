@@ -64,47 +64,33 @@ describe("Deasync mode", function() {
 			};
 			assert.strictEqual(3 in db.example, true);
 		});
-		it.skip(
-			"should implement `push`",
-			() => db.example.set([1, 2, 3])
-				.then(() => db.example.push(4))
-				.then(() => db.example._promise)
-				.then(val => assert.deepStrictEqual(val, [1, 2, 3, 4]))
-		);
-		it.skip(
-			"should implement `pop`",
-			() => db.example.set([1, 2, 3, 4])
-				.then(() => db.example.pop())
-				.then(val => assert.strictEqual(val, 4))
-				.then(() => db.example._promise)
-				.then(val => assert.deepStrictEqual(val, [1, 2, 3]))
-		);
-		it.skip(
-			"should implement `slice`",
-			() => db.example.set([1, 2, 3, 4])
-				.then(() => db.example.slice(1, 3))
-				.then(val => assert.deepStrictEqual(val, [2, 3]))
-		);
-		it.skip(
-			"should implement `splice`",
-			() => db.example.set(["foo", "bar", "baz", "test"])
-				.then(() => db.example.splice(1, 2))
-				.then(val => assert.deepStrictEqual(val, ["bar", "baz"]))
-				.then(() => db.example._promise)
-				.then(val => assert.deepStrictEqual(val, ["foo", "test"]))
-		);
-		it.skip(
-			"should respect forced properties",
-			() => db.example.set({push: "foo bar"})
-				.then(() => db.example.__prop_push._promise)
-				.then(val => assert.strictEqual(val, "foo bar"))
-		);
-		it.skip(
-			"should respect forced functions",
-			() => db.example.set("foo bar")
-				.then(() => db.example.__func_toUpperCase())
-				.then(val => assert.strictEqual(val, "FOO BAR"))
-		);
+		it("should implement `push`", () => {
+			db.example = [1, 2, 3];
+			db.example.push(4);
+			assert.deepStrictEqual(db.example._value, [1, 2, 3, 4]);
+		});
+		it("should implement `pop`", () => {
+			db.example = [1, 2, 3, 4];
+			assert.strictEqual(db.example.pop(), 4);
+			assert.deepStrictEqual(db.example._value, [1, 2, 3]);
+		});
+		it("should implement `slice`", () => {
+				db.example = [1, 2, 3, 4];
+				assert.deepStrictEqual(db.example.slice(1, 3), [2, 3]);
+		});
+		it("should implement `splice`", () => {
+			db.example = ["foo", "bar", "baz", "test"];
+			assert.deepStrictEqual(db.example.splice(1, 2), ["bar", "baz"]);
+			assert.deepStrictEqual(db.example._value, ["foo", "test"]);
+		});
+		it("should respect forced properties", () => {
+			db.example = {push: "foo bar"};
+			assert.strictEqual(db.example.__prop_push._value, "foo bar");
+		});
+		it("should respect forced functions", () => {
+			db.example = "foo bar";
+			assert.strictEqual(db.example.__func_toUpperCase(), "FOO BAR");
+		});
 	});
 });
 
