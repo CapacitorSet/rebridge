@@ -17,11 +17,9 @@ describe("Deasync mode", function() {
 			db.hello = {};
 			// assert(db.hello == {});
 		});
-		it.skip(
-			"should return undefined on unknown keys",
-			() => db.unknown_key._promise
-				.then(val => assert.equal(val, undefined))
-		);
+		it("should return undefined on unknown keys", () => {
+			assert.equal(db.unknown_key._value, undefined);
+		});
 		it.skip("should allow the `in` operator", () => assert.throws(() => "hello" in db));
 		it.skip("should allow the `delete` operator", () => assert.throws(() => delete db.hello));
 	});
@@ -36,15 +34,12 @@ describe("Deasync mode", function() {
 		it("should set hello.world.foo.bar", () => {
 			db.hello.world.foo.bar = true;
 		});
-		it.skip(
-			"should read hello correctly",
-			() => db.hello._promise
-				.then(val => assert.deepStrictEqual(val, {world: {foo: {bar: true}}}))
-		);
-		it.skip(
-			"should throw on subkeys of unknown keys",
-			() => new Promise((resolve, reject) => db.unknown_key.unknown_key._promise.then(reject).catch(resolve))
-		);
+		it("should read hello correctly", () => {
+			assert.deepStrictEqual(db.hello._value, {world: {foo: {bar: true}}});
+		});
+		it("should throw on subkeys of unknown keys", () => {
+			assert.throws(() => db.unknown_key.unknown_key._value);
+		});
 		it.skip(
 			"should implement the `delete` operator",
 			() => db.example.set({

@@ -126,8 +126,30 @@ function ProxiedWrapper(promise, rootKey) {
 		promise,
 		{
 			get: (obj, key) => {
+				// _value value
+				if (deasynced && key === "_value") {
+					let done = false;
+					let err;
+					let ret;
+					obj._promise.then(value => {
+						while (obj.tree.length > 0) {
+							const curKey = obj.tree.shift();
+							value = value[curKey];
+						}
+						return value;
+					}).then(value => {
+						done = true;
+						ret = value;
+					}).catch(e => {
+						done = true;
+						err = e;
+					});
+					deasync.loopWhile(() => !done);
+					if (err) throw err;
+					return ret;
+				}
 				// _promise property
-				if (key === "_promise") {
+				if (!deasynced && key === "_promise") {
 					return obj._promise.then(value => {
 						while (obj.tree.length > 0) {
 							const curKey = obj.tree.shift();
@@ -140,7 +162,7 @@ function ProxiedWrapper(promise, rootKey) {
 				if (typeof key === "symbol" || key === "inspect" || key in obj)
 					return obj[key];
 				// .set special Promise
-				if (key === "set") {
+				if (deasynced && key === "set") {
 					return val => promisableGet(rootKey, true)
 						.then(rootValue => {
 							let ret;
@@ -153,11 +175,11 @@ function ProxiedWrapper(promise, rootKey) {
 						});
 				}
 				// .delete special Promise
-				if (key === "delete")
+				if (deasynced && key === "delete")
 					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]
 					);
 				// .in special Promise
-				if (key === "in")
+				if (deasynced && key === "in")
 					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
 
 				const forceFunc = /^__func_/.test(key);
@@ -204,6 +226,7 @@ function ProxiedWrapper(promise, rootKey) {
 					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
 				let done = false;
 				let err;
+				obj.tree.push(prop);
 				promisableGet(rootKey, true)
 					.then(rootValue => {
 						if (obj.tree.length > 0) {
