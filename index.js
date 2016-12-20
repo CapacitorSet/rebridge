@@ -199,8 +199,30 @@ function ProxiedWrapper(promise, rootKey) {
 				obj.tree.push(key);
 				return new ProxiedWrapper(obj, rootKey);
 			},
-			set: () => {
-				throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
+			set: (obj, prop, val) => {
+				if (!deasynced)
+					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
+				let done = false;
+				let err;
+				promisableGet(rootKey, true)
+					.then(rootValue => {
+						if (obj.tree.length > 0) {
+							nestedSet(rootValue, obj.tree, val);
+						} else {
+							rootValue = val;
+						}
+						return promisableSet(rootKey, rootValue);
+					})
+					.then(r => {
+						done = true
+					})
+					.catch(e => {
+						done = true;
+						err = e;
+					});
+				deasync.loopWhile(() => !done);
+				if (err) throw err;
+				return true;
 			},
 			has: () => {
 				throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead.");

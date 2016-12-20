@@ -25,21 +25,27 @@ describe("Deasync mode", function() {
 		it.skip("should allow the `in` operator", () => assert.throws(() => "hello" in db));
 		it.skip("should allow the `delete` operator", () => assert.throws(() => delete db.hello));
 	});
-	describe.skip("second level", function() {
-		it("should not allow setting properties", () => assert.throws(() => db.hello.world = true));
-		it("should set hello.world", () => db.hello.set({}).then(() => db.hello.world.set({})));
-		it("should set hello.world.foo", () => db.hello.world.foo.set({}));
-		it("should set hello.world.foo.bar", () => db.hello.world.foo.bar.set(true));
-		it(
+	describe("second level", function() {
+		it("should set hello.world", function() {
+			db.hello = {};
+			db.hello.world = {};
+		});
+		it("should set hello.world.foo", () => {
+			db.hello.world.foo = {};
+		});
+		it("should set hello.world.foo.bar", () => {
+			db.hello.world.foo.bar = true;
+		});
+		it.skip(
 			"should read hello correctly",
 			() => db.hello._promise
 				.then(val => assert.deepStrictEqual(val, {world: {foo: {bar: true}}}))
 		);
-		it(
+		it.skip(
 			"should throw on subkeys of unknown keys",
 			() => new Promise((resolve, reject) => db.unknown_key.unknown_key._promise.then(reject).catch(resolve))
 		);
-		it(
+		it.skip(
 			"should implement the `delete` operator",
 			() => db.example.set({
 				1: 'one',
@@ -51,7 +57,7 @@ describe("Deasync mode", function() {
 				.then(() => db.example._promise)
 				.then(val => assert.deepStrictEqual(val, {1: 'one', 2: 'two', 4: 'four'}))
 		);
-		it(
+		it.skip(
 			"should implement the `in` operator",
 			() => db.example.set({
 				1: 'one',
@@ -62,14 +68,14 @@ describe("Deasync mode", function() {
 				.then(() => db.example.in(3))
 				.then(val => assert.strictEqual(val, true))
 		);
-		it(
+		it.skip(
 			"should implement `push`",
 			() => db.example.set([1, 2, 3])
 				.then(() => db.example.push(4))
 				.then(() => db.example._promise)
 				.then(val => assert.deepStrictEqual(val, [1, 2, 3, 4]))
 		);
-		it(
+		it.skip(
 			"should implement `pop`",
 			() => db.example.set([1, 2, 3, 4])
 				.then(() => db.example.pop())
@@ -77,13 +83,13 @@ describe("Deasync mode", function() {
 				.then(() => db.example._promise)
 				.then(val => assert.deepStrictEqual(val, [1, 2, 3]))
 		);
-		it(
+		it.skip(
 			"should implement `slice`",
 			() => db.example.set([1, 2, 3, 4])
 				.then(() => db.example.slice(1, 3))
 				.then(val => assert.deepStrictEqual(val, [2, 3]))
 		);
-		it(
+		it.skip(
 			"should implement `splice`",
 			() => db.example.set(["foo", "bar", "baz", "test"])
 				.then(() => db.example.splice(1, 2))
@@ -91,13 +97,13 @@ describe("Deasync mode", function() {
 				.then(() => db.example._promise)
 				.then(val => assert.deepStrictEqual(val, ["foo", "test"]))
 		);
-		it(
+		it.skip(
 			"should respect forced properties",
 			() => db.example.set({push: "foo bar"})
 				.then(() => db.example.__prop_push._promise)
 				.then(val => assert.strictEqual(val, "foo bar"))
 		);
-		it(
+		it.skip(
 			"should respect forced functions",
 			() => db.example.set("foo bar")
 				.then(() => db.example.__func_toUpperCase())
