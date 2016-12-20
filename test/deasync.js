@@ -45,29 +45,25 @@ describe("Deasync mode", function() {
 		it("should throw on subkeys of unknown keys", () => {
 			assert.throws(() => db.unknown_key.unknown_key._value);
 		});
-		it.skip(
-			"should implement the `delete` operator",
-			() => db.example.set({
+		it("should implement the `delete` operator", () => {
+			db.example = {
 				1: 'one',
 				2: 'two',
 				3: 'three',
 				4: 'four'
-			})
-				.then(() => db.example.delete(3))
-				.then(() => db.example._promise)
-				.then(val => assert.deepStrictEqual(val, {1: 'one', 2: 'two', 4: 'four'}))
-		);
-		it.skip(
-			"should implement the `in` operator",
-			() => db.example.set({
+			};
+			delete db.example[3];
+			assert.deepStrictEqual(db.example._value, {1: 'one', 2: 'two', 4: 'four'});
+		});
+		it("should implement the `in` operator", () => {
+			db.example = {
 				1: 'one',
 				2: 'two',
 				3: 'three',
 				4: 'four'
-			})
-				.then(() => db.example.in(3))
-				.then(val => assert.strictEqual(val, true))
-		);
+			};
+			assert.strictEqual(3 in db.example, true);
+		});
 		it.skip(
 			"should implement `push`",
 			() => db.example.set([1, 2, 3])

@@ -176,8 +176,7 @@ function ProxiedWrapper(promise, rootKey) {
 				}
 				// .delete special Promise
 				if (!deasynced && key === "delete")
-					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]
-					);
+					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]);
 				// .in special Promise
 				if (!deasynced && key === "in")
 					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
@@ -236,9 +235,7 @@ function ProxiedWrapper(promise, rootKey) {
 						}
 						return promisableSet(rootKey, rootValue);
 					})
-					.then(r => {
-						done = true
-					})
+					.then(() => done = true)
 					.catch(e => {
 						done = true;
 						err = e;
@@ -247,11 +244,39 @@ function ProxiedWrapper(promise, rootKey) {
 				if (err) throw err;
 				return true;
 			},
-			has: () => {
-				throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead.");
+			has: (obj, prop) => {
+				if (!deasynced)
+					throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead.");
+				let done = false;
+				let err;
+				let ret;
+				promisableModify(rootKey, obj.tree, item => prop in item)
+					.then(val => {
+						done = true;
+						ret = val;
+					})
+					.catch(e => {
+						done = true;
+						err = e;
+					});
+				deasync.loopWhile(() => !done);
+				if (err) throw err;
+				return ret;
 			},
-			deleteProperty: () => {
-				throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promsie instead");
+			deleteProperty: (obj, prop) => {
+				if (!deasynced)
+					throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise instead");
+				let done = false;
+				let err;
+				promisableModify(rootKey, obj.tree, item => delete item[prop])
+					.then(() => done = true)
+					.catch(e => {
+						done = true;
+						err = e;
+					});
+				deasync.loopWhile(() => !done);
+				if (err) throw err;
+				return true;
 			}
 		}
 	);
@@ -264,7 +289,7 @@ class Rebridge {
 		clients: [client],
 		mode: "promise"
 	}) {
-		deasynced = mode == "deasync";
+		deasynced = mode === "deasync";
 		redis = client;
 		if (lock)
 			redlock = new Redlock(clients);
