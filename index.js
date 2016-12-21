@@ -11,6 +11,23 @@ const namespace = "rebridge";
 
 let deasynced;
 
+function awaitPromise(p) {
+	let done = false;
+	let ret;
+	let err;
+	p.then(arg => {
+		done = true;
+		ret = arg;
+	})
+	.catch(e => {
+		done = true;
+		err = e;
+	});
+	deasync.loopWhile(() => !done);
+	if (err) throw err;
+	return ret;
+}
+
 function promisableGet(rootKey, permissive = false) {
 	return new Promise(
 		(resolve, reject) => redis.hget(namespace, rootKey, (err, json) => {
@@ -128,25 +145,13 @@ function ProxiedWrapper(promise, rootKey) {
 			get: (obj, key) => {
 				// _value value
 				if (deasynced && key === "_value") {
-					let done = false;
-					let err;
-					let ret;
-					obj._promise.then(value => {
+					return awaitPromise(obj._promise.then(value => {
 						while (obj.tree.length > 0) {
 							const curKey = obj.tree.shift();
 							value = value[curKey];
 						}
 						return value;
-					}).then(value => {
-						done = true;
-						ret = value;
-					}).catch(e => {
-						done = true;
-						err = e;
-					});
-					deasync.loopWhile(() => !done);
-					if (err) throw err;
-					return ret;
+					}));
 				}
 				// _promise property
 				if (!deasynced && key === "_promise") {
@@ -212,23 +217,10 @@ function ProxiedWrapper(promise, rootKey) {
 					if (forceFunc)
 						key = key.replace(/^__func_/i, "");
 					return function() {
-						if (!deasynced)
-							return promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
-						let done = false;
-						let err;
-						let ret;
-						promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments))
-							.then(val => {
-								done = true;
-								ret = val;
-							})
-							.catch(e => {
-								done = true;
-								err = e;
-							});
-						deasync.loopWhile(() => !done);
-						if (err) throw err;
-						return ret;
+						const promise = promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
+						if (deasynced)
+							return awaitPromise(promise);
+						return promise;
 					};
 				}
 				if (forceProp)
@@ -239,10 +231,8 @@ function ProxiedWrapper(promise, rootKey) {
 			set: (obj, prop, val) => {
 				if (!deasynced)
 					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
-				let done = false;
-				let err;
 				obj.tree.push(prop);
-				promisableGet(rootKey, true)
+				awaitPromise(promisableGet(rootKey, true)
 					.then(rootValue => {
 						if (obj.tree.length > 0) {
 							nestedSet(rootValue, obj.tree, val);
@@ -250,48 +240,18 @@ function ProxiedWrapper(promise, rootKey) {
 							rootValue = val;
 						}
 						return promisableSet(rootKey, rootValue);
-					})
-					.then(() => done = true)
-					.catch(e => {
-						done = true;
-						err = e;
-					});
-				deasync.loopWhile(() => !done);
-				if (err) throw err;
+					}));
 				return true;
 			},
 			has: (obj, prop) => {
 				if (!deasynced)
 					throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead.");
-				let done = false;
-				let err;
-				let ret;
-				promisableModify(rootKey, obj.tree, item => prop in item)
-					.then(val => {
-						done = true;
-						ret = val;
-					})
-					.catch(e => {
-						done = true;
-						err = e;
-					});
-				deasync.loopWhile(() => !done);
-				if (err) throw err;
-				return ret;
+				return awaitPromise(promisableModify(rootKey, obj.tree, item => prop in item));
 			},
 			deleteProperty: (obj, prop) => {
 				if (!deasynced)
 					throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise instead");
-				let done = false;
-				let err;
-				promisableModify(rootKey, obj.tree, item => delete item[prop])
-					.then(() => done = true)
-					.catch(e => {
-						done = true;
-						err = e;
-					});
-				deasync.loopWhile(() => !done);
-				if (err) throw err;
+				awaitPromise(promisableModify(rootKey, obj.tree, item => delete item[prop]));
 				return true;
 			}
 		}
