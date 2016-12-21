@@ -5,8 +5,9 @@ module.exports = {
             "properties": "never"
         }],
         "curly": 0,
+        "default-case": 1,
         "eol-last": 0,
-        "indent": ["error", "tab"],
+        "indent": ["error", "tab", {"SwitchCase": 1}],
         "max-len": 0,
         "new-cap": 1,
         "no-console": 2,
