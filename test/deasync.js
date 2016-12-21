@@ -75,8 +75,8 @@ describe("Deasync mode", function() {
 			assert.deepStrictEqual(db.example._value, [1, 2, 3]);
 		});
 		it("should implement `slice`", () => {
-				db.example = [1, 2, 3, 4];
-				assert.deepStrictEqual(db.example.slice(1, 3), [2, 3]);
+			db.example = [1, 2, 3, 4];
+			assert.deepStrictEqual(db.example.slice(1, 3), [2, 3]);
 		});
 		it("should implement `splice`", () => {
 			db.example = ["foo", "bar", "baz", "test"];
