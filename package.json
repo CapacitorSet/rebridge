@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/CapacitorSet/rebridge",
   "dependencies": {
+    "deasync": "0.1.9",
     "redlock": "2.1.0"
   },
   "devDependencies": {
