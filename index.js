@@ -55,10 +55,8 @@ function promisableSet(key, val) {
 	}
 	return new Promise(
 		(resolve, reject) => redis.hset(namespace, key, json, err => {
-			if (err)
-				reject(err);
-			else
-				resolve();
+			if (err) return reject(err);
+			resolve();
 		})
 	);
 }
@@ -125,15 +123,12 @@ function RedisWrapper(key) {
 				"rebridge",
 				key,
 				(err, json) => {
-					if (err) {
-						reject(err);
-						return;
-					}
+					if (err) return reject(err);
 					try {
 						const val = JSON.parse(json);
-						resolve(val);
+						return resolve(val);
 					} catch (e) {
-						reject(e);
+						return reject(e);
 					}
 				}
 			),
@@ -148,9 +143,6 @@ function ProxiedWrapper(promise, rootKey) {
 		promise,
 		{
 			get: (obj, key) => {
-				// Standard stuff
-				if (typeof key === "symbol" || key === "inspect" || key in obj)
-					return obj[key];
 				// _value value
 				if (deasynced && key === "_value") {
 					return awaitPromise(obj._promise.then(value => {
@@ -161,34 +153,38 @@ function ProxiedWrapper(promise, rootKey) {
 						return value;
 					}));
 				}
-				// Predefined properties
-				if (!deasynced) {
-					switch (key) {
-						case "_promise":
-							return obj._promise.then(value => {
-								while (obj.tree.length > 0) {
-									const curKey = obj.tree.shift();
-									value = value[curKey];
-								}
-								return value;
-							});
-						case "set":
-							return val => promisableGet(rootKey, true)
-								.then(rootValue => {
-									let ret;
-									if (obj.tree.length > 0) {
-										ret = nestedSet(rootValue, obj.tree, val);
-									} else {
-										ret = (rootValue = val);
-									}
-									return promisableSet(rootKey, rootValue).then(() => ret);
-								});
-						case "delete":
-							return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]);
-						case "in":
-							return prop => promisableModify(rootKey, obj.tree, item => prop in item);
-					}
+				// _promise property
+				if (!deasynced && key === "_promise") {
+					return obj._promise.then(value => {
+						while (obj.tree.length > 0) {
+							const curKey = obj.tree.shift();
+							value = value[curKey];
+						}
+						return value;
+					});
 				}
+				// Standard stuff
+				if (typeof key === "symbol" || key === "inspect" || key in obj)
+					return obj[key];
+				// .set special Promise
+				if (!deasynced && key === "set") {
+					return val => promisableGet(rootKey, true)
+						.then(rootValue => {
+							let ret;
+							if (obj.tree.length > 0) {
+								ret = nestedSet(rootValue, obj.tree, val);
+							} else {
+								ret = (rootValue = val);
+							}
+							return promisableSet(rootKey, rootValue).then(() => ret);
+						});
+				}
+				// .delete special Promise
+				if (!deasynced && key === "delete")
+					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]);
+				// .in special Promise
+				if (!deasynced && key === "in")
+					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
 
 				const forceFunc = /^__func_/.test(key);
 				const forceProp = /^__prop_/.test(key);
@@ -243,7 +239,7 @@ function ProxiedWrapper(promise, rootKey) {
 						} else {
 							rootValue = val;
 						}
-						promisableSet(rootKey, rootValue);
+						return promisableSet(rootKey, rootValue);
 					}));
 				return true;
 			},
@@ -293,10 +289,8 @@ class Rebridge {
 							namespace,
 							key,
 							(err, val) => {
-								if (err)
-									reject(err);
-								else
-									resolve(val === 1);
+								if (err) return reject(err);
+								resolve(val === 1);
 							}
 						)
 					);
@@ -306,10 +300,8 @@ class Rebridge {
 							namespace,
 							key,
 							err => {
-								if (err)
-									reject(err);
-								else
-									resolve(true);
+								if (err) return reject(err);
+								resolve(true);
 							}
 						)
 					);
