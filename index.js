@@ -55,8 +55,10 @@ function promisableSet(key, val) {
 	}
 	return new Promise(
 		(resolve, reject) => redis.hset(namespace, key, json, err => {
-			if (err) return reject(err);
-			resolve();
+			if (err)
+				reject(err);
+			else
+				resolve();
 		})
 	);
 }
@@ -123,12 +125,15 @@ function RedisWrapper(key) {
 				"rebridge",
 				key,
 				(err, json) => {
-					if (err) return reject(err);
+					if (err) {
+						reject(err);
+						return;
+					}
 					try {
 						const val = JSON.parse(json);
-						return resolve(val);
+						resolve(val);
 					} catch (e) {
-						return reject(e);
+						reject(e);
 					}
 				}
 			),
@@ -239,7 +244,7 @@ function ProxiedWrapper(promise, rootKey) {
 						} else {
 							rootValue = val;
 						}
-						return promisableSet(rootKey, rootValue);
+						promisableSet(rootKey, rootValue);
 					}));
 				return true;
 			},
@@ -289,8 +294,10 @@ class Rebridge {
 							namespace,
 							key,
 							(err, val) => {
-								if (err) return reject(err);
-								resolve(val === 1);
+								if (err)
+									reject(err);
+								else
+									resolve(val === 1);
 							}
 						)
 					);
@@ -300,8 +307,10 @@ class Rebridge {
 							namespace,
 							key,
 							err => {
-								if (err) return reject(err);
-								resolve(true);
+								if (err)
+									reject(err);
+								else
+									resolve(true);
 							}
 						)
 					);
