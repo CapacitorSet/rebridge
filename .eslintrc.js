@@ -17,6 +17,7 @@ module.exports = {
         "no-unused-vars": 1,
         "no-var": 1,
         "prefer-const": 1,
-        "require-jsdoc": 0
+        "require-jsdoc": 0,
+        "linebreak-style": 0
     }
 };
