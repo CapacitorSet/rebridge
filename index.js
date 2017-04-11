@@ -347,10 +347,10 @@ class Rebridge {
 		lockTTL = 1000,
 		clients = [client],
 		mode = "promise",
-		namespace = "rebridge",
+		namespace = "rebridge"
 	}) {
-		let deasynced = mode === "deasync";
-		let redis = client;
+		const deasynced = mode === "deasync";
+		const redis = client;
 		let redlock;
 		if (lock)
 			redlock = new Redlock(clients);
@@ -360,12 +360,12 @@ class Rebridge {
 					unlock: () => Promise.resolve()
 				})
 			};
-		let opt = {
+		const opt = {
 			deasynced,
 			redis,
 			redlock,
 			lockTTL,
-			namespace,
+			namespace
 		};
 		return new RootProxiedWrapper(opt, {});
 	}
