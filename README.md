@@ -22,8 +22,6 @@ const redis = require("redis");
 
 const client = redis.createClient();
 const db = new Rebridge(client, {
-    lock: true,
-    clients: [client],
     mode: "deasync"
 });
 
