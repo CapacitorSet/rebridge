@@ -348,7 +348,7 @@ class Rebridge {
 		clients = [client],
 		mode = "promise",
 		namespace = "rebridge"
-	}) {
+	} = {}) {
 		const deasynced = mode === "deasync";
 		const redis = client;
 		let redlock;
