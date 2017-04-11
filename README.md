@@ -12,9 +12,9 @@ Rebridge is a transparent Javascript-Redis bridge. You can use it to create Java
 npm install rebridge
 ```
 
-##Usage
+## Usage
 
-###Synchronous, non-blocking usage
+### Synchronous, non-blocking usage
 
 ```js
 const Rebridge = require("rebridge");
@@ -46,8 +46,7 @@ console.log("Me:", me); // Prints [{username: "CapacitorSet", email: "..."}]
 client.quit();
 ```
 
-
-###Asynchronous usage
+### Asynchronous usage
 
 ```js
 const Rebridge = require("rebridge");
