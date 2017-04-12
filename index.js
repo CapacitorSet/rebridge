@@ -4,13 +4,6 @@ const assert = require("assert");
 const deasync = require("deasync");
 const Redlock = require("redlock");
 
-let redis;
-let redlock;
-const lockTTL = 1000;
-const namespace = "rebridge";
-
-let deasynced;
-
 function awaitPromise(p) {
 	let done = false;
 	let ret;
@@ -28,9 +21,9 @@ function awaitPromise(p) {
 	return ret;
 }
 
-function promisableGet(rootKey, permissive = false) {
+function promisableGet(opt, rootKey, permissive = false) {
 	return new Promise(
-		(resolve, reject) => redis.hget(namespace, rootKey, (err, json) => {
+		(resolve, reject) => opt.redis.hget(opt.namespace, rootKey, (err, json) => {
 			if (err) {
 				reject(err);
 				return;
@@ -45,7 +38,7 @@ function promisableGet(rootKey, permissive = false) {
 	);
 }
 
-function promisableSet(key, val) {
+function promisableSet(opt, key, val) {
 	assert.notStrictEqual(typeof val, "undefined");
 	let json = JSON.stringify(val);
 	try {
@@ -54,7 +47,7 @@ function promisableSet(key, val) {
 		json = "{}";
 	}
 	return new Promise(
-		(resolve, reject) => redis.hset(namespace, key, json, err => {
+		(resolve, reject) => opt.redis.hset(opt.namespace, key, json, err => {
 			if (err)
 				reject(err);
 			else
@@ -63,12 +56,12 @@ function promisableSet(key, val) {
 	);
 }
 
-function promisableModify(rootKey, tree, fun) {
+function promisableModify(opt, rootKey, tree, fun) {
 	// Yes, it's ugly, but it's needed to keep variables around
-	return redlock.lock(rootKey, lockTTL)
-		.then(lock => promisableGet(rootKey)
+	return opt.redlock.lock(rootKey, opt.lockTTL)
+		.then(lock => promisableGet(opt, rootKey)
 			.then(rootVal => nestedApply(rootVal, tree, fun))
-			.then(({newObj, ret}) => promisableSet(rootKey, newObj)
+			.then(({newObj, ret}) => promisableSet(opt, rootKey, newObj)
 				.then(() => lock.unlock())
 				.then(() => ret)
 		)
@@ -118,11 +111,11 @@ function nestedSet(obj, path, value) {
  * Also contains a "tree" property, which is used when navigating the
  * deserialized object.
  */
-function RedisWrapper(key) {
+function RedisWrapper(opt, key) {
 	return {
 		_promise: new Promise(
-			(resolve, reject) => redis.hget(
-				"rebridge",
+			(resolve, reject) => opt.redis.hget(
+				opt.namespace,
 				key,
 				(err, json) => {
 					if (err) {
@@ -143,13 +136,13 @@ function RedisWrapper(key) {
 	};
 }
 
-function ProxiedWrapper(promise, rootKey) {
+function ProxiedWrapper(opt, promise, rootKey) {
 	return new Proxy(
 		promise,
 		{
 			get: (obj, key) => {
 				// _value value
-				if (deasynced && key === "_value") {
+				if (opt.deasynced && key === "_value") {
 					return awaitPromise(obj._promise.then(value => {
 						while (obj.tree.length > 0) {
 							const curKey = obj.tree.shift();
@@ -159,7 +152,7 @@ function ProxiedWrapper(promise, rootKey) {
 					}));
 				}
 				// _promise property
-				if (!deasynced && key === "_promise") {
+				if (!opt.deasynced && key === "_promise") {
 					return obj._promise.then(value => {
 						while (obj.tree.length > 0) {
 							const curKey = obj.tree.shift();
@@ -172,8 +165,8 @@ function ProxiedWrapper(promise, rootKey) {
 				if (typeof key === "symbol" || key === "inspect" || key in obj)
 					return obj[key];
 				// .set special Promise
-				if (!deasynced && key === "set") {
-					return val => promisableGet(rootKey, true)
+				if (!opt.deasynced && key === "set") {
+					return val => promisableGet(opt, rootKey, true)
 						.then(rootValue => {
 							let ret;
 							if (obj.tree.length > 0) {
@@ -181,15 +174,15 @@ function ProxiedWrapper(promise, rootKey) {
 							} else {
 								ret = (rootValue = val);
 							}
-							return promisableSet(rootKey, rootValue).then(() => ret);
+							return promisableSet(opt, rootKey, rootValue).then(() => ret);
 						});
 				}
 				// .delete special Promise
-				if (!deasynced && key === "delete")
-					return prop => promisableModify(rootKey, obj.tree, item => delete item[prop]);
+				if (!opt.deasynced && key === "delete")
+					return prop => promisableModify(opt, rootKey, obj.tree, item => delete item[prop]);
 				// .in special Promise
-				if (!deasynced && key === "in")
-					return prop => promisableModify(rootKey, obj.tree, item => prop in item);
+				if (!opt.deasynced && key === "in")
+					return prop => promisableModify(opt, rootKey, obj.tree, item => prop in item);
 
 				const forceFunc = /^__func_/.test(key);
 				const forceProp = /^__prop_/.test(key);
@@ -222,8 +215,8 @@ function ProxiedWrapper(promise, rootKey) {
 					if (forceFunc)
 						key = key.replace(/^__func_/i, "");
 					return function() {
-						const promise = promisableModify(rootKey, obj.tree, item => item[key].apply(item, arguments));
-						if (deasynced)
+						const promise = promisableModify(opt, rootKey, obj.tree, item => item[key].apply(item, arguments));
+						if (opt.deasynced)
 							return awaitPromise(promise);
 						return promise;
 					};
@@ -231,56 +224,42 @@ function ProxiedWrapper(promise, rootKey) {
 				if (forceProp)
 					key = key.replace(/^__prop_/i, "");
 				obj.tree.push(key);
-				return new ProxiedWrapper(obj, rootKey);
+				return new ProxiedWrapper(opt, obj, rootKey);
 			},
 			set: (obj, prop, val) => {
-				if (!deasynced)
+				if (!opt.deasynced)
 					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
 				obj.tree.push(prop);
-				awaitPromise(promisableGet(rootKey, true)
+				awaitPromise(promisableGet(opt, rootKey, true)
 					.then(rootValue => {
 						if (obj.tree.length > 0) {
 							nestedSet(rootValue, obj.tree, val);
 						} else {
 							rootValue = val;
 						}
-						promisableSet(rootKey, rootValue);
+						promisableSet(opt, rootKey, rootValue);
 					}));
 				return true;
 			},
 			has: (obj, prop) => {
-				if (!deasynced)
+				if (!opt.deasynced)
 					throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead.");
-				return awaitPromise(promisableModify(rootKey, obj.tree, item => prop in item));
+				return awaitPromise(promisableModify(opt, rootKey, obj.tree, item => prop in item));
 			},
 			deleteProperty: (obj, prop) => {
-				if (!deasynced)
+				if (!opt.deasynced)
 					throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise instead");
-				awaitPromise(promisableModify(rootKey, obj.tree, item => delete item[prop]));
+				awaitPromise(promisableModify(opt, rootKey, obj.tree, item => delete item[prop]));
 				return true;
 			}
 		}
 	);
 }
 
-// Catches "reads" of db.foo, and returns a wrapper around the deserialized value from Redis.
-class Rebridge {
-	constructor(client, {lock, clients, mode} = {
-		lock: true,
-		clients: [client],
-		mode: "promise"
-	}) {
-		deasynced = mode === "deasync";
-		redis = client;
-		if (lock)
-			redlock = new Redlock(clients);
-		else // Use a dummy lock
-			redlock = {
-				lock: () => Promise.resolve({
-					unlock: () => Promise.resolve()
-				})
-			};
-		return new Proxy({}, {
+function RootProxiedWrapper(opt, targetObj) {
+	return new Proxy(
+		targetObj,
+		{
 			get: (obj, key) => {
 				if (key in obj) {
 					return obj[key];
@@ -288,10 +267,10 @@ class Rebridge {
 				assert.deepEqual(typeof key, "string");
 				if (key === "set")
 					throw new Error("You can't call .set on the root object. Syntax: db.foo.set(bar)");
-				if (!deasynced && key === "in")
+				if (!opt.deasynced && key === "in")
 					return key => new Promise(
-						(resolve, reject) => redis.hexists(
-							namespace,
+						(resolve, reject) => opt.redis.hexists(
+							opt.namespace,
 							key,
 							(err, val) => {
 								if (err)
@@ -303,8 +282,8 @@ class Rebridge {
 					);
 				if (key === "delete")
 					return key => new Promise(
-						(resolve, reject) => redis.hdel(
-							namespace,
+						(resolve, reject) => opt.redis.hdel(
+							opt.namespace,
 							key,
 							err => {
 								if (err)
@@ -314,14 +293,14 @@ class Rebridge {
 							}
 						)
 					);
-				return new ProxiedWrapper(new RedisWrapper(key), key);
+				return new ProxiedWrapper(opt, new RedisWrapper(opt, key), key);
 			},
 			set: (target, prop, val) => {
-				if (!deasynced)
+				if (!opt.deasynced)
 					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
 				let done = false;
 				let err = null;
-				redis.hset(namespace, prop, JSON.stringify(val), e => {
+				opt.redis.hset(opt.namespace, prop, JSON.stringify(val), e => {
 					done = true;
 					err = e;
 				});
@@ -330,12 +309,12 @@ class Rebridge {
 				return true;
 			},
 			has: (target, prop) => {
-				if (!deasynced)
+				if (!opt.deasynced)
 					throw new Error("The `in` operator isn't supported for Rebridge objects, use the .in() Promise instead");
 				let done = false;
 				let err;
 				let ret;
-				redis.hexists(namespace, prop, (e, val) => {
+				opt.redis.hexists(opt.namespace, prop, (e, val) => {
 					done = true;
 					err = e;
 					ret = val;
@@ -345,11 +324,11 @@ class Rebridge {
 				return ret;
 			},
 			deleteProperty: (target, prop) => {
-				if (!deasynced)
+				if (!opt.deasynced)
 					throw new Error("The `delete` operator isn't supported for Rebridge objects, use the .delete() Promise isntead");
 				let done = false;
 				let err;
-				redis.hdel(namespace, prop, e => {
+				opt.redis.hdel(opt.namespace, prop, e => {
 					done = true;
 					err = e;
 				});
@@ -357,7 +336,38 @@ class Rebridge {
 				if (err) throw err;
 				return true;
 			}
-		});
+		}
+	);
+}
+
+// Catches "reads" of db.foo, and returns a wrapper around the deserialized value from Redis.
+class Rebridge {
+	constructor(client, {
+		lock = true,
+		lockTTL = 1000,
+		clients = [client],
+		mode = "promise",
+		namespace = "rebridge"
+	} = {}) {
+		const deasynced = mode === "deasync";
+		const redis = client;
+		let redlock;
+		if (lock)
+			redlock = new Redlock(clients);
+		else // Use a dummy lock
+			redlock = {
+				lock: () => Promise.resolve({
+					unlock: () => Promise.resolve()
+				})
+			};
+		const opt = {
+			deasynced,
+			redis,
+			redlock,
+			lockTTL,
+			namespace
+		};
+		return new RootProxiedWrapper(opt, {});
 	}
 }
 
