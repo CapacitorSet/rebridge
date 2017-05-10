@@ -30,7 +30,7 @@ function promisableGet(opt, rootKey, permissive = false) {
 			}
 			try {
 				if (permissive && json === "undefined") return undefined;
-				resolve(JSON.parse(json) || {});
+				resolve(opt.deserialize(json) || {});
 			} catch (e) {
 				reject(e);
 			}
@@ -40,9 +40,9 @@ function promisableGet(opt, rootKey, permissive = false) {
 
 function promisableSet(opt, key, val) {
 	assert.notStrictEqual(typeof val, "undefined");
-	let json = JSON.stringify(val);
+	let json = opt.serialize(val);
 	try {
-		JSON.parse(json);
+		opt.deserialize(json);
 	} catch (e) {
 		json = "{}";
 	}
@@ -123,7 +123,7 @@ function RedisWrapper(opt, key) {
 						return;
 					}
 					try {
-						const val = JSON.parse(json);
+						const val = opt.deserialize(json);
 						resolve(val);
 					} catch (e) {
 						reject(e);
@@ -300,7 +300,7 @@ function RootProxiedWrapper(opt, targetObj) {
 					throw new Error("Can't assign values to Rebridge objects, use the .set() Promise instead");
 				let done = false;
 				let err = null;
-				opt.redis.hset(opt.namespace, prop, JSON.stringify(val), e => {
+				opt.redis.hset(opt.namespace, prop, opt.serialize(val), e => {
 					done = true;
 					err = e;
 				});
@@ -347,7 +347,9 @@ class Rebridge {
 		lockTTL = 1000,
 		clients = [client],
 		mode = "promise",
-		namespace = "rebridge"
+		namespace = "rebridge",
+		serialize = JSON.stringify,
+		deserialize = JSON.parse
 	} = {}) {
 		const deasynced = mode === "deasync";
 		const redis = client;
@@ -365,7 +367,9 @@ class Rebridge {
 			redis,
 			redlock,
 			lockTTL,
-			namespace
+			namespace,
+			serialize,
+			deserialize
 		};
 		return new RootProxiedWrapper(opt, {});
 	}
