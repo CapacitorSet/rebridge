@@ -1,6 +1,6 @@
 {
   "name": "rebridge",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "engines": {
     "node": ">=6.0.0"
   },
