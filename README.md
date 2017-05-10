@@ -82,9 +82,21 @@ Rebridge uses ES6 Proxy objects, so it requires at least Node 6.
 
 ## Limitations
 
-* Rebridge objects can't contain functions, circular references, and in general everything for which `x === JSON.parse(JSON.stringify(x))` doesn't hold true.
+* By default, Rebridge objects can't contain functions, circular references, and in general everything for which `x === JSON.parse(JSON.stringify(x))` doesn't hold true. However, you can use a custom serialization function (see below).
 
-* Obviously, you cannot write directly to `db` (i.e. you can't do `var db = Rebridge(); db = "e"`).
+* Obviously, you cannot write directly to `db` (i.e. you can't do `var db = Rebridge(); db = {"name": "foo"}`).
+
+## Custom serialization
+
+By default, Rebridge serializes to JSON, but you can pass a custom serialization function. For instance, if you wanted to serialize to YAML, you would do something like this:
+
+```js
+const yaml = require("js-yaml");
+const db = new Rebridge(client, {
+    serialize: yaml.dump,
+    deserialize: yaml.load
+});
+```
 
 ## How it works
 
