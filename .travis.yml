@@ -1,6 +1,7 @@
 language: node_js
 node_js:
-  - '6'
+  - node  # latest stable
+  - lts/* # latest LTS
 services:
   - redis-server
 cache:
